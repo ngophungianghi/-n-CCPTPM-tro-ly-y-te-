@@ -1,32 +1,24 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Loader2, AlertTriangle, Calendar, Clock, ArrowRight } from 'lucide-react';
+import { Send, User, Bot, Loader2, AlertTriangle, Calendar, ArrowRight } from 'lucide-react';
 import { Message, Doctor } from '../types';
 import { sendMessageToGemini } from '../services/geminiService';
-import { MOCK_DOCTORS } from '../constants';
 
 interface ChatInterfaceProps {
   onSpecialtyDetected?: (text: string) => void;
   onBook: (doctor: Doctor) => void;
+  doctors: Doctor[]; // Nhận danh sách bác sĩ từ App
 }
 
-// Mini Doctor Card for Chat
-const RecommendedDoctorCard: React.FC<{ doctorId: string; onBook: (doctor: Doctor) => void }> = ({ doctorId, onBook }) => {
-  const doctor = MOCK_DOCTORS.find(d => d.id === doctorId);
-  if (!doctor) return null;
-
+const RecommendedDoctorCard: React.FC<{ doctor: Doctor; onBook: (doctor: Doctor) => void }> = ({ doctor, onBook }) => {
   return (
-    <div className="mt-3 bg-white p-3 rounded-xl border border-teal-100 shadow-sm flex flex-col gap-2 max-w-[280px]">
+    <div className="mt-3 bg-white p-3 rounded-xl border border-teal-100 shadow-sm flex flex-col gap-2 max-w-[280px] animate-slide-up">
       <div className="flex gap-3">
-          <img src={doctor.image} alt={doctor.name} className="w-10 h-10 rounded-full object-cover border border-slate-100" />
+          <img src={doctor.image || 'https://via.placeholder.com/100'} alt={doctor.name} className="w-10 h-10 rounded-full object-cover border border-slate-100" />
           <div className="flex-1 min-w-0">
               <p className="font-bold text-slate-800 text-sm truncate">{doctor.name}</p>
               <p className="text-teal-600 text-xs truncate">{doctor.specialty}</p>
           </div>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
-          <Clock size={12} className="text-green-600" />
-          <span>Trống: <span className="font-medium text-green-700">{doctor.nextAvailable}</span></span>
       </div>
       <button 
         onClick={() => onBook(doctor)}
@@ -34,13 +26,12 @@ const RecommendedDoctorCard: React.FC<{ doctorId: string; onBook: (doctor: Docto
       >
           <Calendar size={14} />
           Đặt lịch ngay
-          <ArrowRight size={12} className="opacity-80"/>
       </button>
     </div>
   );
 };
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetected, onBook }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetected, onBook, doctors }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'init-1',
@@ -52,68 +43,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages, isLoading]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: inputText,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', text: inputText, timestamp: new Date() };
+    setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsLoading(true);
 
     try {
-      const { text, recommendedDoctorIds } = await sendMessageToGemini(userMessage.text);
-      
-      const botMessage: Message = {
+      const { text, recommendedDoctorIds } = await sendMessageToGemini(userMsg.text);
+      const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: text,
+        text,
         timestamp: new Date(),
-        recommendedDoctorIds: recommendedDoctorIds
+        recommendedDoctorIds
       };
-
-      setMessages(prev => [...prev, botMessage]);
-
-      if (onSpecialtyDetected) {
-          onSpecialtyDetected(text);
-      }
-
+      setMessages(prev => [...prev, botMsg]);
+      if (onSpecialtyDetected) onSpecialtyDetected(text);
     } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: "Xin lỗi, đã có lỗi xảy ra khi kết nối. Vui lòng thử lại sau.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, { id: 'err', role: 'model', text: "Lỗi kết nối AI. Thử lại sau!", timestamp: new Date() }]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
     }
   };
 
@@ -121,123 +78,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
     return text.split('\n').map((line, i) => {
       const parts = line.split(/(\*\*.*?\*\*)/g);
       return (
-        <div key={i} className={`min-h-[1.4em] ${line.trim().startsWith('-') ? 'ml-4' : ''}`}>
-           {parts.map((part, j) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={j} className="font-bold text-slate-800">{part.slice(2, -2)}</strong>;
-              }
-              return <span key={j}>{part}</span>;
-           })}
+        <div key={i} className="min-h-[1.4em]">
+           {parts.map((part, j) => part.startsWith('**') ? <strong key={j} className="font-bold text-slate-800">{part.slice(2, -2)}</strong> : <span key={j}>{part}</span>)}
         </div>
       );
     });
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
-      
-      {/* Soft Header */}
-      <div className="bg-gradient-to-r from-teal-50 to-white p-4 border-b border-slate-100 flex items-center justify-between z-10">
-        <div className="flex items-center gap-3">
-          <div className="bg-teal-100 p-2 rounded-2xl">
-            <Bot size={24} className="text-teal-700" />
-          </div>
-          <div>
-            <h2 className="font-bold text-slate-800 leading-tight">Trợ Lý Sức Khỏe</h2>
-            <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span className="text-xs text-slate-500 font-medium">Đang trực tuyến</span>
-            </div>
-          </div>
-        </div>
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-full border border-amber-100">
-           <AlertTriangle size={12} className="text-amber-500" />
-           <p className="text-[10px] text-amber-700 font-medium uppercase tracking-wide">Sàng lọc, không chẩn đoán</p>
-        </div>
+    <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+      <div className="bg-teal-50/50 p-4 border-b border-slate-100 flex items-center gap-3">
+        <Bot size={24} className="text-teal-700" />
+        <h2 className="font-bold text-slate-800">Tư vấn sức khỏe AI</h2>
       </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/30 scroll-smooth">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/20">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 sm:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            {/* Avatar */}
-            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm border
-                ${msg.role === 'user' ? 'bg-blue-600 border-blue-600' : 'bg-white border-white'}`}>
-              {msg.role === 'user' ? 
-                <User size={16} className="text-white" /> : 
-                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" alt="AI" className="w-full h-full object-cover rounded-full" />
-              }
+          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${msg.role === 'user' ? 'bg-teal-600' : 'bg-white border shadow-sm'}`}>
+              {msg.role === 'user' ? <User size={16} className="text-white"/> : <Bot size={16} className="text-teal-600"/>}
             </div>
-            
-            <div className="flex flex-col gap-1 max-w-[85%] sm:max-w-[75%]">
-                {/* Bubble */}
-                <div
-                className={`px-5 py-3.5 shadow-sm text-sm sm:text-[15px] leading-relaxed
-                    ${msg.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm' 
-                    : 'bg-white text-slate-600 border border-slate-100 rounded-2xl rounded-tl-sm'}`}
-                >
+            <div className="max-w-[80%]">
+              <div className={`p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-teal-600 text-white' : 'bg-white border shadow-sm'}`}>
                 {renderText(msg.text)}
-                </div>
-
-                {/* Recommendations (if any) */}
-                {msg.recommendedDoctorIds && msg.recommendedDoctorIds.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-1 animate-fade-in-up">
-                        {msg.recommendedDoctorIds.map(id => (
-                            <RecommendedDoctorCard key={id} doctorId={id} onBook={onBook} />
-                        ))}
-                    </div>
-                )}
-
-                {/* Timestamp */}
-                <div className={`text-[10px] opacity-50 px-1
-                    ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
+              </div>
+              {msg.recommendedDoctorIds?.map(id => {
+                const doc = doctors.find(d => d.id === id);
+                return doc ? <RecommendedDoctorCard key={id} doctor={doc} onBook={onBook} /> : null;
+              })}
             </div>
           </div>
         ))}
-        
-        {isLoading && (
-          <div className="flex gap-4">
-             <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shrink-0 shadow-sm">
-                 <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" alt="AI" className="w-full h-full object-cover rounded-full opacity-50" />
-            </div>
-            <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm flex items-center gap-3">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                <span className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                <span className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
-              </div>
-            </div>
-          </div>
-        )}
+        {isLoading && <Loader2 className="animate-spin text-teal-600 mx-auto" />}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Input Area */}
-      <div className="p-4 bg-white/80 backdrop-blur-md border-t border-slate-100">
-        <div className="relative max-w-4xl mx-auto">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Nhập triệu chứng của bạn tại đây..."
-            disabled={isLoading}
-            className="w-full bg-slate-50 border-0 text-slate-800 rounded-2xl pl-5 pr-14 py-4 shadow-inner ring-1 ring-slate-200 focus:ring-2 focus:ring-teal-500 focus:outline-none transition-all placeholder-slate-400 disabled:opacity-60"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputText.trim() || isLoading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 active:scale-95 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md shadow-teal-200"
-          >
-            {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-          </button>
+      <div className="p-4 border-t">
+        <div className="relative">
+          <input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendMessage()} placeholder="Nhập triệu chứng..." className="w-full bg-slate-100 rounded-xl py-3 pl-4 pr-12 outline-none focus:ring-2 focus:ring-teal-500" />
+          <button onClick={handleSendMessage} className="absolute right-2 top-1.5 p-2 bg-teal-600 text-white rounded-lg"><Send size={18}/></button>
         </div>
       </div>
     </div>

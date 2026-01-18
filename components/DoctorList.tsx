@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SPECIALTY_OPTIONS } from '../constants';
 import { Doctor } from '../types';
-import { Star, Clock, Filter, Stethoscope, ChevronRight } from 'lucide-react';
+import { Filter, Stethoscope, ChevronRight } from 'lucide-react';
 
 interface DoctorListProps {
   initialFilter?: string;
@@ -13,7 +13,6 @@ interface DoctorListProps {
 export const DoctorList: React.FC<DoctorListProps> = ({ initialFilter, onBook, doctors }) => {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>(initialFilter || 'All');
 
-  // Sync state if initialFilter changes from parent
   useEffect(() => {
     if (initialFilter) setSelectedSpecialty(initialFilter);
   }, [initialFilter]);
@@ -82,12 +81,6 @@ export const DoctorList: React.FC<DoctorListProps> = ({ initialFilter, onBook, d
                     alt={doctor.name} 
                     className="w-16 h-16 rounded-2xl object-cover"
                     />
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-white p-0.5 rounded-lg shadow-sm">
-                        <div className="flex items-center gap-0.5 bg-amber-100 px-1.5 py-0.5 rounded text-[10px] text-amber-700 font-bold">
-                            <Star size={8} fill="currentColor" />
-                            {doctor.rating}
-                        </div>
-                    </div>
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -100,11 +93,8 @@ export const DoctorList: React.FC<DoctorListProps> = ({ initialFilter, onBook, d
                     </div>
                   </div>
                   
-                  <div className="mt-3 flex items-center gap-3 text-xs">
-                    <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
-                        <Clock size={12} className="text-teal-500" />
-                        <span className="truncate">{doctor.nextAvailable}</span>
-                    </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    Kinh nghiệm: {doctor.experience} năm
                   </div>
                 </div>
               </div>

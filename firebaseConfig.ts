@@ -1,27 +1,30 @@
 
-// PHIÊN BẢN LIGHTWEIGHT: Tạm thời tắt kết nối Firebase để chạy Local
-// Khi nào bạn muốn dùng Firebase thật, hãy uncomment các dòng dưới và điền Config.
-
-/*
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+export const firebaseConfig = {
+  apiKey: "AIzaSyAf-zV7NCVm3wQ1ZZeR8_z0nf1iNYuCd7c",
+  authDomain: "healthcareapp-8a21a.firebaseapp.com",
+  projectId: "healthcareapp-8a21a",
+  storageBucket: "healthcareapp-8a21a.firebasestorage.app",
+  messagingSenderId: "240512972044",
+  appId: "1:240512972044:web:c6216da2ced27098314529",
+  measurementId: "G-GZFWYFESNW"
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-*/
+export const isFirebaseConfigured = true;
 
-// Mock objects để tránh lỗi import
-export const isFirebaseConfigured = false;
-export const db = null;
-export const auth = null;
+let db: any = null;
+let storage: any = null;
+
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  console.log("✅ Kết nối Firebase & Storage thành công");
+} catch (error) {
+  console.error("❌ Lỗi kết nối Firebase:", error);
+}
+
+export { db, storage };

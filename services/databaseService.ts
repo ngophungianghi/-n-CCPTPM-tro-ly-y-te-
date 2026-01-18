@@ -1,68 +1,201 @@
 
-import { Doctor, Booking } from "../types";
-import { MOCK_DOCTORS } from "../constants";
+import { Doctor, Booking, User } from "../types";
+import { db, storage } from "../firebaseConfig";
+import { 
+  collection, 
+  getDocs, 
+  getDoc,
+  doc, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc,
+  query, 
+  where, 
+  serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-// LOCAL STORAGE KEY
-const STORAGE_KEY = 'care_ai_bookings';
-
-// --- SERVICE HOÀN TOÀN CHẠY TRÊN TRÌNH DUYỆT (Offline-first) ---
-
-export const fetchDoctors = async (): Promise<Doctor[]> => {
-  // Giả lập độ trễ mạng cực thấp để tạo cảm giác mượt mà
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_DOCTORS), 100);
-  });
+/**
+ * UPLOAD HÌNH ẢNH
+ */
+export const uploadDoctorImage = async (file: File): Promise<string> => {
+  if (!storage) throw new Error("Storage chưa được cấu hình");
+  const storageRef = ref(storage, `doctors/${Date.now()}_${file.name}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  return await getDownloadURL(snapshot.ref);
 };
 
-export const saveBooking = async (bookingData: any) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        const currentData = localStorage.getItem(STORAGE_KEY);
-        const localBookings = currentData ? JSON.parse(currentData) : [];
-        
-        const newBooking = {
-          ...bookingData,
-          id: 'booking_' + Date.now(),
-          timestamp: new Date().toISOString() // Lưu dưới dạng chuỗi ISO để an toàn
-        };
-        
-        // Thêm mới vào đầu danh sách
-        const updatedBookings = [newBooking, ...localBookings];
-        
-        // Lưu vĩnh viễn vào trình duyệt
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBookings));
-        
-        console.log("Đã lưu lịch hẹn thành công:", newBooking);
-        resolve(newBooking.id);
-      } catch (error) {
-        console.error("Lỗi lưu dữ liệu:", error);
-        resolve(null);
-      }
-    }, 500); // Giả lập xử lý server
-  });
+/**
+ * QUẢN LÝ USER (AUTH)
+ */
+export const registerUser = async (user: User): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const userRef = doc(db, "users", user.phone);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) return false;
+
+    await setDoc(userRef, {
+      phone: user.phone,
+      username: user.username,
+      fullName: user.fullName,
+      password: user.password,
+      role: user.role,
+      createdAt: serverTimestamp()
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+export const loginUser = async (phone: string, password: string): Promise<User | null> => {
+  if (!db) return null;
+  try {
+    const userRef = doc(db, "users", phone);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data() as User;
+      if (userData.password === password) return userData;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const fetchAllUsers = async (): Promise<User[]> => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "users"));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ phone: doc.id, ...doc.data() } as User));
+  } catch (e) {
+    return [];
+  }
+};
+
+/**
+ * QUẢN LÝ BÁC SĨ
+ */
+export const fetchDoctors = async (): Promise<Doctor[]> => {
+  if (!db) return [];
+  try {
+    const querySnapshot = await getDocs(collection(db, "doctors"));
+    return querySnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    } as Doctor));
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveDoctor = async (doctor: Partial<Doctor>): Promise<void> => {
+  if (!db) return;
+  try {
+    if (doctor.id) {
+      const docRef = doc(db, "doctors", doctor.id);
+      const data = { ...doctor };
+      delete data.id;
+      await updateDoc(docRef, data);
+    } else {
+      await addDoc(collection(db, "doctors"), {
+        ...doctor,
+        createdAt: serverTimestamp()
+      });
+    }
+  } catch (e) {
+    throw e;
+  }
+};
+
+export const deleteDoctor = async (id: string): Promise<void> => {
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, "doctors", id));
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * QUẢN LÝ LỊCH HẸN
+ */
+export const checkAvailability = async (doctorId: string, date: string): Promise<string[]> => {
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, "bookings"),
+      where("doctorId", "==", doctorId),
+      where("date", "==", date),
+      where("status", "==", "Chờ khám")
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data().time);
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveBooking = async (bookingData: any): Promise<string | null> => {
+  if (!db) return null;
+  try {
+    const docRef = await addDoc(collection(db, "bookings"), {
+      ...bookingData,
+      status: 'Chờ khám',
+      timestamp: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (e) {
+    return null;
+  }
 };
 
 export const fetchUserBookings = async (phone: string): Promise<Booking[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-       try {
-        const currentData = localStorage.getItem(STORAGE_KEY);
-        const localBookings = currentData ? JSON.parse(currentData) : [];
-        
-        const userBookings = localBookings
-          .filter((b: any) => b.userPhone === phone)
-          .map((b: any) => ({
-            ...b,
-            // Quan trọng: Chuyển đổi chuỗi thời gian trở lại đối tượng Date để React hiển thị đúng
-            timestamp: new Date(b.timestamp)
-          }));
-          
-        resolve(userBookings);
-       } catch (error) {
-         console.error("Lỗi đọc dữ liệu:", error);
-         resolve([]);
-       }
-    }, 300);
-  });
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "bookings"), where("userPhone", "==", phone));
+    const snap = await getDocs(q);
+    const results = snap.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(), 
+      timestamp: doc.data().timestamp?.toDate() || new Date() 
+    } as Booking));
+    return results.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  } catch (e) {
+    return [];
+  }
+};
+
+export const fetchAllBookings = async (): Promise<Booking[]> => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "bookings"));
+    const snap = await getDocs(q);
+    const results = snap.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(), 
+      timestamp: doc.data().timestamp?.toDate() || new Date() 
+    } as Booking));
+    return results.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  } catch (e) {
+    return [];
+  }
+};
+
+export const updateBookingStatus = async (bookingId: string, newStatus: string): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "bookings", bookingId);
+    await updateDoc(docRef, { status: newStatus });
+    return true;
+  } catch (e) {
+    return false;
+  }
 };
