@@ -21,13 +21,67 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 /**
- * UPLOAD HÌNH ẢNH
+ * NÉN ẢNH TRƯỚC KHI UPLOAD
+ */
+const compressImage = (file: File, maxWidth = 800, maxHeight = 800): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Canvas to Blob failed"));
+        }, 'image/jpeg', 0.8);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
+/**
+ * UPLOAD HÌNH ẢNH (Có nén)
  */
 export const uploadDoctorImage = async (file: File): Promise<string> => {
   if (!storage) throw new Error("Storage chưa được cấu hình");
-  const storageRef = ref(storage, `doctors/${Date.now()}_${file.name}`);
-  const snapshot = await uploadBytes(storageRef, file);
-  return await getDownloadURL(snapshot.ref);
+  
+  if (!file.type.startsWith('image/')) {
+    throw new Error("Vui lòng chọn file hình ảnh.");
+  }
+
+  try {
+    const compressedBlob = await compressImage(file);
+    const storageRef = ref(storage, `doctors/${Date.now()}_doctor_portrait.jpg`);
+    const snapshot = await uploadBytes(storageRef, compressedBlob);
+    return await getDownloadURL(snapshot.ref);
+  } catch (error) {
+    console.error("Error in uploadDoctorImage:", error);
+    throw error;
+  }
 };
 
 /**
@@ -80,6 +134,18 @@ export const fetchAllUsers = async (): Promise<User[]> => {
   }
 };
 
+export const updateUserRole = async (phone: string, newRole: 'admin' | 'customer' | 'doctor'): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const userRef = doc(db, "users", phone);
+    await updateDoc(userRef, { role: newRole });
+    return true;
+  } catch (e) {
+    console.error("Error updating user role:", e);
+    return false;
+  }
+};
+
 /**
  * QUẢN LÝ BÁC SĨ
  */
@@ -92,6 +158,7 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
       ...doc.data() 
     } as Doctor));
   } catch (e) {
+    console.error("Error fetching doctors:", e);
     return [];
   }
 };
@@ -116,10 +183,15 @@ export const saveDoctor = async (doctor: Partial<Doctor>): Promise<void> => {
 };
 
 export const deleteDoctor = async (id: string): Promise<void> => {
-  if (!db) return;
+  if (!db) throw new Error("Cơ sở dữ liệu chưa sẵn sàng");
+  if (!id) throw new Error("ID bác sĩ không hợp lệ để xóa");
+  
   try {
-    await deleteDoc(doc(db, "doctors", id));
+    const docRef = doc(db, "doctors", id);
+    await deleteDoc(docRef);
+    console.log(`Doctor with ID ${id} deleted from Firestore`);
   } catch (e) {
+    console.error("Database error while deleting doctor:", e);
     throw e;
   }
 };

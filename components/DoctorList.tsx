@@ -6,7 +6,7 @@ import { Filter, Stethoscope, ChevronRight } from 'lucide-react';
 
 interface DoctorListProps {
   initialFilter?: string;
-  onBook: (doctor: Doctor) => void;
+  onBook: (doctor: Doctor, aiSummary?: string) => void;
   doctors: Doctor[];
 }
 

@@ -31,6 +31,7 @@ export interface Doctor {
   price: number;
   image: string;
   availableSlots: AvailableSlot[]; // Lịch rảnh do Admin thiết lập
+  userPhone?: string; // SĐT tài khoản user tương ứng (để map login)
 }
 
 export interface User {
@@ -39,7 +40,7 @@ export interface User {
   phone: string;
   fullName: string;
   password?: string;
-  role: 'admin' | 'customer';
+  role: 'admin' | 'customer' | 'doctor';
 }
 
 export interface Booking {
@@ -50,8 +51,9 @@ export interface Booking {
   specialty: string;
   date: string;
   time: string;
-  status: 'Chờ khám' | 'Đã hoàn thành' | 'Đã hủy';
+  status: 'Chờ khám' | 'Đã xác nhận' | 'Đã hoàn thành' | 'Đã hủy';
   userPhone: string;
   userFullName: string;
   timestamp: Date;
+  aiSummary?: string; // Tóm tắt triệu chứng từ AI
 }

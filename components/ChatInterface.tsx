@@ -6,7 +6,7 @@ import { sendMessageToGemini } from '../services/geminiService';
 
 interface ChatInterfaceProps {
   onSpecialtyDetected?: (text: string) => void;
-  onBook: (doctor: Doctor) => void;
+  onBook: (doctor: Doctor, aiSummary?: string) => void;
   doctors: Doctor[]; // Nhận danh sách bác sĩ từ App
 }
 
@@ -74,6 +74,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
     }
   };
 
+  const getLastUserSymptoms = () => {
+    // Tìm tin nhắn gần nhất của user để làm tóm tắt triệu chứng
+    const userMsgs = messages.filter(m => m.role === 'user');
+    return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].text : "Không có thông tin chi tiết.";
+  };
+
   const renderText = (text: string) => {
     return text.split('\n').map((line, i) => {
       const parts = line.split(/(\*\*.*?\*\*)/g);
@@ -103,7 +109,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
               </div>
               {msg.recommendedDoctorIds?.map(id => {
                 const doc = doctors.find(d => d.id === id);
-                return doc ? <RecommendedDoctorCard key={id} doctor={doc} onBook={onBook} /> : null;
+                return doc ? (
+                    <RecommendedDoctorCard 
+                        key={id} 
+                        doctor={doc} 
+                        onBook={(d) => onBook(d, `Triệu chứng chính: ${getLastUserSymptoms()}`)} 
+                    />
+                ) : null;
               })}
             </div>
           </div>
