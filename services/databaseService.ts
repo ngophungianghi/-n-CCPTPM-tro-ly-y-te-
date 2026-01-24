@@ -206,7 +206,8 @@ export const checkAvailability = async (doctorId: string, date: string): Promise
       collection(db, "bookings"),
       where("doctorId", "==", doctorId),
       where("date", "==", date),
-      where("status", "==", "Chờ khám")
+      // Fix: Check both Pending AND Confirmed status
+      where("status", "in", ["Chờ khám", "Đã xác nhận"])
     );
     const snap = await getDocs(q);
     return snap.docs.map(d => d.data().time);

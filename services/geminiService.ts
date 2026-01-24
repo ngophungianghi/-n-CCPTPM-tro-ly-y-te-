@@ -1,20 +1,25 @@
 
 import { GoogleGenAI, Chat } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from '../constants';
+import { getSystemInstruction } from '../constants';
+import { Doctor } from "../types";
 
-// Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Using Chat instead of deprecated ChatSession
 let chatSession: Chat | null = null;
+let currentDoctors: Doctor[] = [];
 
-export const initializeChat = async () => {
+export const initializeChat = async (doctors: Doctor[]) => {
   try {
+    currentDoctors = doctors;
+    const doctorContext = doctors.length > 0 
+      ? doctors.map(d => `- ID: ${d.id} | Tên: ${d.name} | Chuyên khoa: ${d.specialty} | Kinh nghiệm: ${d.experience} năm | Phí: ${d.price}đ`).join('\n')
+      : "Hiện chưa có bác sĩ nào sẵn sàng trong hệ thống.";
+
     chatSession = ai.chats.create({
       model: 'gemini-3-flash-preview',
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.6,
+        systemInstruction: getSystemInstruction(doctorContext),
+        temperature: 0.4, // Giảm temperature để AI phản hồi ổn định hơn
         topK: 40,
         topP: 0.95,
       },
@@ -33,43 +38,43 @@ interface GeminiResponse {
 
 export const sendMessageToGemini = async (message: string): Promise<GeminiResponse> => {
   if (!chatSession) {
-    await initializeChat();
+    await initializeChat([]);
   }
 
   if (!chatSession) {
-    throw new Error("Chat session could not be initialized.");
+    throw new Error("Chat session not ready.");
   }
 
   try {
-    // response.text is a property, not a method
     const response = await chatSession.sendMessage({ message });
-    let text = response.text || "Xin lỗi, tôi gặp sự cố khi xử lý phản hồi. Vui lòng thử lại.";
+    let text = response.text || "Xin lỗi, tôi gặp sự cố khi xử lý phản hồi.";
     let recommendedDoctorIds: string[] | undefined;
 
-    // Improved JSON extraction regex: Matches JSON block even if there are extra newlines or messy markdown
-    const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+    // Regex mạnh mẽ hơn để bắt khối JSON gợi ý bác sĩ
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/);
     
     if (jsonMatch) {
       try {
-        // Clean up any potential trailing commas or comments if necessary (JSON.parse is strict)
-        const jsonString = jsonMatch[1];
+        const jsonString = jsonMatch[1] || jsonMatch[0];
         const data = JSON.parse(jsonString);
         
         if (data.recommended_doctor_ids && Array.isArray(data.recommended_doctor_ids)) {
-          recommendedDoctorIds = data.recommended_doctor_ids;
+          // Chỉ lấy các ID thực sự tồn tại trong currentDoctors
+          recommendedDoctorIds = data.recommended_doctor_ids.filter((id: string) => 
+            currentDoctors.some(d => d.id === id)
+          );
         }
         
-        // Remove the JSON block from the text shown to user
-        text = text.replace(jsonMatch[0], '').trim();
+        // Làm sạch văn bản hiển thị cho người dùng (loại bỏ phần JSON)
+        text = text.replace(/```json[\s\S]*?```/g, '').replace(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/g, '').trim();
       } catch (e) {
-        console.warn("Failed to parse recommendation JSON from AI response:", e);
-        // We do not throw here, simply return the text without recommendations
+        console.warn("AI returned invalid JSON recommendation:", e);
       }
     }
 
     return { text, recommendedDoctorIds };
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini Error:", error);
     throw new Error("Không thể kết nối với hệ thống AI.");
   }
 };
