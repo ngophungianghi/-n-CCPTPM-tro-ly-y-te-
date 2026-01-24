@@ -19,7 +19,7 @@ export const initializeChat = async (doctors: Doctor[]) => {
       model: 'gemini-3-flash-preview',
       config: {
         systemInstruction: getSystemInstruction(doctorContext),
-        temperature: 0.4, // Giảm temperature để AI phản hồi ổn định hơn
+        temperature: 0.4, 
         topK: 40,
         topP: 0.95,
       },
@@ -34,6 +34,7 @@ export const initializeChat = async (doctors: Doctor[]) => {
 interface GeminiResponse {
   text: string;
   recommendedDoctorIds?: string[];
+  summary?: string;
 }
 
 export const sendMessageToGemini = async (message: string): Promise<GeminiResponse> => {
@@ -49,30 +50,56 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
     const response = await chatSession.sendMessage({ message });
     let text = response.text || "Xin lỗi, tôi gặp sự cố khi xử lý phản hồi.";
     let recommendedDoctorIds: string[] | undefined;
+    let summary: string | undefined;
 
-    // Regex mạnh mẽ hơn để bắt khối JSON gợi ý bác sĩ
-    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/);
+    // 1. XỬ LÝ SUMMARY TAG [SUMMARY: ...]
+    const summaryMatch = text.match(/\[SUMMARY:(.*?)\]/);
+    if (summaryMatch) {
+        summary = summaryMatch[1].trim();
+        // Xóa tag summary khỏi văn bản hiển thị
+        text = text.replace(/\[SUMMARY:.*?\]/g, '').trim();
+    }
+
+    // 2. XỬ LÝ ACTION TAG [ACTION:SHOW_BOOKING_LINK:...]
+    const actionMatch = text.match(/\[ACTION:SHOW_BOOKING_LINK:(.*?)\]/);
     
-    if (jsonMatch) {
-      try {
-        const jsonString = jsonMatch[1] || jsonMatch[0];
-        const data = JSON.parse(jsonString);
-        
-        if (data.recommended_doctor_ids && Array.isArray(data.recommended_doctor_ids)) {
-          // Chỉ lấy các ID thực sự tồn tại trong currentDoctors
-          recommendedDoctorIds = data.recommended_doctor_ids.filter((id: string) => 
-            currentDoctors.some(d => d.id === id)
-          );
+    if (actionMatch) {
+      const specialtyName = actionMatch[1].trim();
+      
+      // Lọc danh sách bác sĩ theo chuyên khoa mà AI đề xuất
+      const matchingDoctors = currentDoctors.filter(d => 
+        d.specialty.toLowerCase() === specialtyName.toLowerCase()
+      );
+
+      if (matchingDoctors.length > 0) {
+        recommendedDoctorIds = matchingDoctors.map(d => d.id);
+      } else {
+        console.warn(`Không tìm thấy bác sĩ cho chuyên khoa: ${specialtyName}`);
+      }
+
+      // Xóa tag action khỏi văn bản hiển thị
+      text = text.replace(/\[ACTION:SHOW_BOOKING_LINK:.*?\]/g, '').trim();
+    } 
+    // 3. LOGIC CŨ (FALLBACK): XỬ LÝ JSON (Giữ lại để tương thích ngược nếu AI lỡ trả về JSON)
+    else {
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/);
+      if (jsonMatch) {
+        try {
+          const jsonString = jsonMatch[1] || jsonMatch[0];
+          const data = JSON.parse(jsonString);
+          if (data.recommended_doctor_ids && Array.isArray(data.recommended_doctor_ids)) {
+            recommendedDoctorIds = data.recommended_doctor_ids.filter((id: string) => 
+              currentDoctors.some(d => d.id === id)
+            );
+          }
+          text = text.replace(/```json[\s\S]*?```/g, '').replace(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/g, '').trim();
+        } catch (e) {
+          console.warn("AI returned invalid JSON recommendation:", e);
         }
-        
-        // Làm sạch văn bản hiển thị cho người dùng (loại bỏ phần JSON)
-        text = text.replace(/```json[\s\S]*?```/g, '').replace(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/g, '').trim();
-      } catch (e) {
-        console.warn("AI returned invalid JSON recommendation:", e);
       }
     }
 
-    return { text, recommendedDoctorIds };
+    return { text, recommendedDoctorIds, summary };
   } catch (error) {
     console.error("Gemini Error:", error);
     throw new Error("Không thể kết nối với hệ thống AI.");

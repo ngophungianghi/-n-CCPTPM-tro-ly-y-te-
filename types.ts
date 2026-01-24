@@ -5,6 +5,7 @@ export interface Message {
   text: string;
   timestamp: Date;
   recommendedDoctorIds?: string[];
+  aiSummary?: string; // Tóm tắt triệu chứng được sinh ra bởi AI
 }
 
 export enum Specialty {

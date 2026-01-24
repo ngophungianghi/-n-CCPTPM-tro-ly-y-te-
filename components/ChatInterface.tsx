@@ -10,7 +10,11 @@ interface ChatInterfaceProps {
   doctors: Doctor[]; // Nhận danh sách bác sĩ từ App
 }
 
-const RecommendedDoctorCard: React.FC<{ doctor: Doctor; onBook: (doctor: Doctor) => void }> = ({ doctor, onBook }) => {
+// Cập nhật Props để nhận summary cụ thể cho từng recommend
+const RecommendedDoctorCard: React.FC<{ 
+    doctor: Doctor; 
+    onBook: (doctor: Doctor) => void; 
+}> = ({ doctor, onBook }) => {
   return (
     <div className="mt-3 bg-white p-3 rounded-xl border border-teal-100 shadow-sm flex flex-col gap-2 max-w-[280px] animate-slide-up">
       <div className="flex gap-3">
@@ -57,13 +61,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
     setIsLoading(true);
 
     try {
-      const { text, recommendedDoctorIds } = await sendMessageToGemini(userMsg.text);
+      const { text, recommendedDoctorIds, summary } = await sendMessageToGemini(userMsg.text);
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'model',
         text,
         timestamp: new Date(),
-        recommendedDoctorIds
+        recommendedDoctorIds,
+        aiSummary: summary // Lưu summary từ AI trả về
       };
       setMessages(prev => [...prev, botMsg]);
       if (onSpecialtyDetected) onSpecialtyDetected(text);
@@ -75,7 +80,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
   };
 
   const getLastUserSymptoms = () => {
-    // Tìm tin nhắn gần nhất của user để làm tóm tắt triệu chứng
     const userMsgs = messages.filter(m => m.role === 'user');
     return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].text : "Không có thông tin chi tiết.";
   };
@@ -107,13 +111,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onSpecialtyDetecte
               <div className={`p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-teal-600 text-white' : 'bg-white border shadow-sm'}`}>
                 {renderText(msg.text)}
               </div>
+              
+              {/* Render Recommended Doctor Card if available */}
               {msg.recommendedDoctorIds?.map(id => {
                 const doc = doctors.find(d => d.id === id);
                 return doc ? (
                     <RecommendedDoctorCard 
                         key={id} 
                         doctor={doc} 
-                        onBook={(d) => onBook(d, `Triệu chứng chính: ${getLastUserSymptoms()}`)} 
+                        // Ưu tiên dùng summary do AI sinh ra (msg.aiSummary), nếu không có mới dùng fallback
+                        onBook={(d) => onBook(d, msg.aiSummary || `Triệu chứng chính: ${getLastUserSymptoms()}`)} 
                     />
                 ) : null;
               })}

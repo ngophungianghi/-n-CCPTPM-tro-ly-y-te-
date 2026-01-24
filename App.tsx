@@ -612,7 +612,24 @@ function App() {
                         <div className="w-24 h-24 bg-slate-200 rounded-[2rem] overflow-hidden flex items-center justify-center border-2 border-white shadow-sm shrink-0">
                             {isUploading ? <Loader2 className="animate-spin text-teal-600"/> : editingDoctor.image ? <img src={editingDoctor.image} className="w-full h-full object-cover"/> : <Camera className="text-slate-400"/>}
                         </div>
-                        <label className="bg-teal-50 text-teal-600 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"><input type="file" accept="image/*" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if(file) { setIsUploading(true); try { const url = await uploadDoctorImage(file); setEditingDoctor({...editingDoctor, image: url}); addToast("Tải ảnh xong!"); } finally { setIsUploading(false); } } }} />Tải ảnh</label>
+                        <div className="flex-1">
+                            <label className="bg-teal-50 text-teal-600 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer inline-block mb-3"><input type="file" accept="image/*" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if(file) { setIsUploading(true); try { const url = await uploadDoctorImage(file); setEditingDoctor({...editingDoctor, image: url}); addToast("Tải ảnh xong!"); } finally { setIsUploading(false); } } }} />Tải ảnh</label>
+                            
+                            {/* NEW: URL INPUT */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase ml-1 block mb-1">Hoặc nhập URL ảnh</label>
+                                <div className="relative">
+                                    <LinkIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"/>
+                                    <input 
+                                        type="text" 
+                                        placeholder="https://..." 
+                                        value={editingDoctor.image || ''} 
+                                        onChange={(e) => setEditingDoctor({...editingDoctor, image: e.target.value})}
+                                        className="w-full pl-10 p-3 rounded-2xl border border-slate-200 text-sm outline-none focus:border-teal-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                       </div>
                       <form onSubmit={onSaveDoctor} className="space-y-4">
                           <div className="relative">
@@ -736,6 +753,40 @@ function App() {
                             className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all"
                         >
                             Đóng, không hủy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* NEW: MODAL CONFIRM DELETE DOCTOR */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] w-full max-w-sm p-6 animate-slide-up shadow-2xl relative border-2 border-slate-100">
+                 <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 border-4 border-red-100">
+                        <Trash2 size={32} />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 mb-2">Xóa bác sĩ này?</h3>
+                    <p className="text-slate-500 text-sm mb-6 px-4">
+                        Hành động này sẽ xóa bác sĩ khỏi hệ thống vĩnh viễn và không thể hoàn tác.
+                    </p>
+                    <div className="flex flex-col w-full gap-3">
+                        <button 
+                            onClick={() => executeDelete(confirmDeleteId)} 
+                            disabled={!!isDeletingId}
+                            className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+                        >
+                            {isDeletingId ? <Loader2 className="animate-spin" size={20}/> : <Trash2 size={20} />}
+                            {isDeletingId ? 'Đang xóa...' : 'Xác nhận xóa'}
+                        </button>
+                        <button 
+                            onClick={() => setConfirmDeleteId(null)} 
+                            disabled={!!isDeletingId}
+                            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all"
+                        >
+                            Hủy bỏ
                         </button>
                     </div>
                 </div>
