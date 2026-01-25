@@ -2,19 +2,35 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Cấu hình sử dụng biến môi trường VITE đã nhập trên Vercel
+// Sử dụng biến môi trường từ process.env
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+// Kiểm tra xem key có tồn tại không
+export const isFirebaseConfigured = !!process.env.VITE_FIREBASE_API_KEY;
 
-console.log("✅ Đã nạp cấu hình Firebase thành công");
+let db: any = null;
+let storage: any = null;
+
+try {
+  // Kiểm tra xem config có giá trị không trước khi init
+  if (isFirebaseConfigured) {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    console.log("✅ Kết nối Firebase & Storage thành công");
+  } else {
+    console.warn("⚠️ Chưa cấu hình Firebase Key (VITE_FIREBASE_...) trong .env hoặc Vercel Settings.");
+  }
+} catch (error) {
+  console.error("❌ Lỗi kết nối Firebase:", error);
+}
+
+export { db, storage };
