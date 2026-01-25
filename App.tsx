@@ -69,7 +69,7 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: ToastMessage[], remov
 const BookingCard: React.FC<{ 
   booking: Booking; 
   onCancel?: (id: string) => void;
-  onRebook?: (doctorName: string) => void; 
+  onRebook?: (doctorId: string) => void; 
 }> = ({ booking, onCancel, onRebook }) => {
   const dateParts = booking.date.split('-'); // YYYY-MM-DD
   const day = dateParts[2];
@@ -142,7 +142,10 @@ const BookingCard: React.FC<{
              </button>
            )}
            {booking.status === 'Đã hoàn thành' && onRebook && (
-             <button onClick={() => onRebook(booking.doctorId)} className="text-xs font-bold text-teal-600 hover:text-teal-700 py-2 px-4 rounded-lg hover:bg-teal-50 transition-colors flex items-center gap-2">
+             <button 
+                onClick={() => onRebook(booking.doctorId)} 
+                className="text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 py-2.5 px-5 rounded-xl shadow-md shadow-teal-200 hover:shadow-lg transition-all flex items-center gap-2"
+             >
                <RefreshCcw size={14} /> Tái khám
              </button>
            )}
@@ -369,7 +372,7 @@ function App() {
     const doctor = doctors.find(d => d.id === doctorId);
     if (doctor) {
         setPendingDoctor(doctor);
-        setBookingSummary("Tái khám theo lịch cũ");
+        setBookingSummary("Tái khám sức khỏe");
         setBookingDate('');
         setBookingTime('');
         setShowBookingModal(true);
