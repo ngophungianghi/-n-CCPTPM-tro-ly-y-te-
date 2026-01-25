@@ -13,12 +13,12 @@ import {
   query, 
   where, 
   serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+} from "firebase/firestore";
 import { 
   ref, 
   uploadBytes, 
   getDownloadURL 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+} from "firebase/storage";
 
 /**
  * NÉN ẢNH TRƯỚC KHI UPLOAD

@@ -9,7 +9,8 @@ import {
   Search, Filter, Lock, Info, Camera, HelpCircle, Check, Users as UsersIcon, Link as LinkIcon,
   AlertCircle, LayoutDashboard, TrendingUp, CalendarCheck, XCircle,
   Shield, Zap, Activity, Star, Award, HeartPulse, Bot, FileText, UserPlus,
-  CalendarDays, CalendarClock, CheckCircle2, RefreshCcw, MapPin, AlertTriangle
+  CalendarDays, CalendarClock, CheckCircle2, RefreshCcw, MapPin, AlertTriangle,
+  Quote, ShieldCheck, Globe, Smartphone
 } from 'lucide-react';
 import { Doctor, User, Booking, Specialty, AvailableSlot } from './types';
 import { 
@@ -166,11 +167,45 @@ const StatCard = ({ icon, label, value, colorClass }: any) => (
 );
 
 const FeatureCard = ({ icon, title, description, colorClass, onClick }: any) => (
-  <div onClick={onClick} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
+  <div onClick={onClick} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group h-full flex flex-col">
     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 ${colorClass}`}>{icon}</div>
     <h3 className="text-xl font-black text-slate-800 mb-3">{title}</h3>
-    <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
+    <p className="text-slate-500 text-sm leading-relaxed flex-1">{description}</p>
     <div className="mt-6 flex items-center text-sm font-bold text-slate-900 gap-2 group-hover:gap-3 transition-all"> Khám phá <ArrowRight size={16} /></div>
+  </div>
+);
+
+// --- NEW HOME COMPONENTS ---
+const ServiceItem = ({ icon, title, desc }: any) => (
+  <div className="flex gap-4 items-start p-6 bg-white rounded-[2rem] border border-slate-100 hover:shadow-md transition-all">
+      <div className="p-3 bg-slate-50 text-slate-900 rounded-2xl shrink-0">
+          {icon}
+      </div>
+      <div>
+          <h4 className="font-bold text-lg text-slate-800 mb-1">{title}</h4>
+          <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
+      </div>
+  </div>
+);
+
+const ReviewCard = ({ name, role, comment, stars }: any) => (
+  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 relative">
+      <Quote className="absolute top-8 right-8 text-slate-100" size={40}/>
+      <div className="flex gap-1 mb-4">
+          {[...Array(5)].map((_, i) => (
+              <Star key={i} size={16} className={`${i < stars ? 'text-yellow-400 fill-yellow-400' : 'text-slate-200'}`} />
+          ))}
+      </div>
+      <p className="text-slate-600 text-sm mb-6 leading-relaxed italic">"{comment}"</p>
+      <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {name[0]}
+          </div>
+          <div>
+              <h5 className="font-bold text-slate-900 text-sm">{name}</h5>
+              <p className="text-xs text-slate-400">{role}</p>
+          </div>
+      </div>
   </div>
 );
 
@@ -442,7 +477,8 @@ function App() {
 
       <main className="max-w-7xl mx-auto p-6 mt-4">
         {currentPage === 'home' && (
-            <div className="animate-fade-in space-y-10">
+            <div className="animate-fade-in space-y-16">
+                {/* 1. HERO BANNER (Existing) */}
                 <div className="bg-slate-900 rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl">
                     <div className="relative z-10 max-w-2xl">
                         <div className="inline-flex items-center gap-2 bg-teal-500/20 border border-teal-500/30 rounded-full px-4 py-1.5 mb-6 backdrop-blur-sm">
@@ -457,10 +493,102 @@ function App() {
                         </div>
                     </div>
                 </div>
+
+                {/* 2. STATS STRIP (New) */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm text-center hover:shadow-md transition-all">
+                        <h3 className="text-3xl font-black text-slate-900 mb-1">10k+</h3>
+                        <p className="text-slate-500 text-sm font-semibold">Bệnh nhân tin dùng</p>
+                     </div>
+                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm text-center hover:shadow-md transition-all">
+                        <h3 className="text-3xl font-black text-teal-600 mb-1">98%</h3>
+                        <p className="text-slate-500 text-sm font-semibold">Đánh giá hài lòng</p>
+                     </div>
+                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm text-center hover:shadow-md transition-all">
+                        <h3 className="text-3xl font-black text-blue-600 mb-1">50+</h3>
+                        <p className="text-slate-500 text-sm font-semibold">Bác sĩ chuyên khoa</p>
+                     </div>
+                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm text-center hover:shadow-md transition-all">
+                        <h3 className="text-3xl font-black text-purple-600 mb-1">24/7</h3>
+                        <p className="text-slate-500 text-sm font-semibold">Hỗ trợ trực tuyến</p>
+                     </div>
+                </div>
+
+                {/* 3. MAIN ACTIONS (Existing) */}
                 <div className="grid md:grid-cols-3 gap-6">
                     <FeatureCard icon={<Bot size={28}/>} title="Chẩn đoán AI" description="Sử dụng AI để phân tích triệu chứng, gợi ý chuyên khoa và đưa ra lời khuyên y tế tức thì." colorClass="bg-teal-100 text-teal-600" onClick={() => setCurrentPage('chat')} />
                     <FeatureCard icon={<CalendarCheck size={28}/>} title="Đặt lịch 1 chạm" description="Tra cứu lịch rảnh bác sĩ theo thời gian thực. Đặt lịch khám nhanh chóng, tiết kiệm thời gian." colorClass="bg-blue-100 text-blue-600" onClick={() => setCurrentPage('doctors')} />
                     <FeatureCard icon={<Activity size={28}/>} title="Hồ sơ sức khỏe" description="Lưu trữ lịch sử khám bệnh, dễ dàng theo dõi tình trạng sức khỏe cá nhân mọi lúc mọi nơi." colorClass="bg-purple-100 text-purple-600" onClick={() => setCurrentPage('history')} />
+                </div>
+
+                {/* 4. WHY CHOOSE US (New) */}
+                <div className="space-y-8">
+                    <div className="text-center max-w-2xl mx-auto">
+                        <h2 className="text-3xl font-black text-slate-900 mb-4">Tại sao chọn CareAI?</h2>
+                        <p className="text-slate-500">Chúng tôi kết hợp công nghệ AI tiên tiến với đội ngũ y bác sĩ hàng đầu để mang lại trải nghiệm chăm sóc sức khỏe tốt nhất.</p>
+                    </div>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <ServiceItem 
+                            icon={<ShieldCheck size={24}/>} 
+                            title="Bảo mật tuyệt đối" 
+                            desc="Dữ liệu sức khỏe của bạn được mã hóa và bảo vệ theo tiêu chuẩn quốc tế. Chỉ bạn và bác sĩ mới có quyền truy cập." 
+                        />
+                        <ServiceItem 
+                            icon={<Smartphone size={24}/>} 
+                            title="Tiện lợi mọi lúc" 
+                            desc="Đặt lịch khám, tư vấn và theo dõi sức khỏe ngay trên điện thoại của bạn, mọi lúc mọi nơi mà không cần chờ đợi." 
+                        />
+                        <ServiceItem 
+                            icon={<Globe size={24}/>} 
+                            title="Mạng lưới rộng khắp" 
+                            desc="Kết nối với hàng trăm phòng khám và bệnh viện uy tín trên toàn quốc, đa dạng chuyên khoa phục vụ mọi nhu cầu." 
+                        />
+                    </div>
+                </div>
+
+                {/* 5. TESTIMONIALS (New) */}
+                <div className="bg-slate-900 text-white rounded-[3rem] p-10 md:p-16 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500 rounded-full blur-[100px] opacity-20"></div>
+                    <div className="relative z-10">
+                         <div className="flex justify-between items-end mb-12">
+                             <div>
+                                <h2 className="text-3xl font-black mb-4">Khách hàng nói gì?</h2>
+                                <p className="text-slate-400 max-w-md">Sự hài lòng của bệnh nhân là động lực để chúng tôi không ngừng cải thiện và phát triển.</p>
+                             </div>
+                             <div className="hidden md:block">
+                                 <button className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl font-bold transition-all">Xem tất cả</button>
+                             </div>
+                         </div>
+                         <div className="grid md:grid-cols-3 gap-6">
+                             <ReviewCard 
+                                name="Minh Anh" 
+                                role="Nhân viên văn phòng" 
+                                stars={5}
+                                comment="Ứng dụng rất dễ sử dụng. Tôi đã đặt lịch khám da liễu cho con chỉ trong 2 phút. Bác sĩ rất tận tâm và chuyên nghiệp." 
+                             />
+                             <ReviewCard 
+                                name="Trần Hùng" 
+                                role="Kỹ sư phần mềm" 
+                                stars={5}
+                                comment="Tính năng chẩn đoán AI khá ấn tượng, giúp tôi định hướng được chuyên khoa cần khám. Tiết kiệm rất nhiều thời gian đi lại." 
+                             />
+                             <ReviewCard 
+                                name="Thu Hà" 
+                                role="Giáo viên" 
+                                stars={4}
+                                comment="Giao diện đẹp, thân thiện. Tôi thích phần lưu trữ lịch sử khám bệnh, rất tiện để theo dõi sức khỏe cho cả gia đình." 
+                             />
+                         </div>
+                    </div>
+                </div>
+
+                {/* 6. CTA BANNER (New) */}
+                <div className="bg-gradient-to-r from-teal-500 to-emerald-500 rounded-[2.5rem] p-10 md:p-14 text-white text-center shadow-lg shadow-teal-500/30">
+                    <h2 className="text-3xl md:text-4xl font-black mb-6">Sẵn sàng chăm sóc sức khỏe của bạn?</h2>
+                    <p className="text-white/90 text-lg mb-8 max-w-2xl mx-auto">Đăng ký tài khoản ngay hôm nay để trải nghiệm dịch vụ y tế công nghệ cao và nhận nhiều ưu đãi hấp dẫn.</p>
+                    <button onClick={() => setCurrentPage('auth')} className="bg-white text-teal-600 px-10 py-4 rounded-2xl font-black text-lg hover:scale-105 transition-transform shadow-xl">
+                        Tham gia ngay
+                    </button>
                 </div>
             </div>
         )}
