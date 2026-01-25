@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// VITE yêu cầu dùng import.meta.env và tiền tố VITE_ để bảo mật
+// Cấu hình sử dụng biến môi trường VITE đã nhập trên Vercel
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -13,23 +13,8 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Kiểm tra cấu hình
-export const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 
-let db = null;
-let storage = null;
-
-try {
-  if (isFirebaseConfigured) {
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    console.log("✅ Kết nối Firebase & Storage thành công");
-  } else {
-    console.warn("⚠️ Thiếu cấu hình VITE_FIREBASE_API_KEY trên Vercel.");
-  }
-} catch (error) {
-  console.error("❌ Lỗi kết nối Firebase:", error);
-}
-
-export { db, storage };
+console.log("✅ Đã nạp cấu hình Firebase thành công");
