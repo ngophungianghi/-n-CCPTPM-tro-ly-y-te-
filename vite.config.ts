@@ -3,12 +3,12 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load toàn bộ biến môi trường (bao gồm cả biến hệ thống trên Vercel)
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  // Load toàn bộ biến môi trường
+  // process.cwd() giờ sẽ hoạt động đúng nhờ @types/node
+  const env = loadEnv(mode, process.cwd(), '');
 
   return {
     plugins: [react()],
-    // Định nghĩa process.env.API_KEY để thay thế trong code khi build
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY)
     },
