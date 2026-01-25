@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Chat } from "@google/genai";
 import { getSystemInstruction } from '../constants';
 import { Doctor } from "../types";
