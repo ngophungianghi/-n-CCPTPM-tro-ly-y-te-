@@ -8,8 +8,16 @@ let currentDoctors: Doctor[] = [];
 
 export const initializeChat = async (doctors: Doctor[]) => {
   try {
-    // Theo guidelines: API key phải được lấy từ process.env.API_KEY
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // FIX: Sử dụng import.meta.env trực tiếp để Vite có thể replace value khi build
+    // @ts-ignore
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      console.warn("⚠️ Thiếu API Key Gemini (VITE_GEMINI_API_KEY). Chat AI sẽ không hoạt động.");
+      return false;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
     currentDoctors = doctors;
     const doctorContext = doctors.length > 0 
@@ -40,14 +48,12 @@ interface GeminiResponse {
 
 export const sendMessageToGemini = async (message: string): Promise<GeminiResponse> => {
   if (!chatSession) {
-    // Thử khởi tạo lại nếu chưa có session
     await initializeChat([]);
   }
 
   if (!chatSession) {
-    // Trả về thông báo lỗi thân thiện thay vì crash ứng dụng
     return { 
-        text: "Hệ thống AI chưa được kết nối (Thiếu API Key). Vui lòng kiểm tra cấu hình.",
+        text: "Hệ thống AI chưa được kết nối (Thiếu VITE_GEMINI_API_KEY). Vui lòng kiểm tra cấu hình.",
         recommendedDoctorIds: [] 
     };
   }
@@ -58,14 +64,12 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
     let recommendedDoctorIds: string[] | undefined;
     let summary: string | undefined;
 
-    // 1. XỬ LÝ SUMMARY TAG [SUMMARY: ...]
     const summaryMatch = text.match(/\[SUMMARY:(.*?)\]/);
     if (summaryMatch) {
         summary = summaryMatch[1].trim();
         text = text.replace(/\[SUMMARY:.*?\]/g, '').trim();
     }
 
-    // 2. XỬ LÝ ACTION TAG [ACTION:SHOW_BOOKING_LINK:...]
     const actionMatch = text.match(/\[ACTION:SHOW_BOOKING_LINK:(.*?)\]/);
     
     if (actionMatch) {
@@ -79,7 +83,6 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
       }
       text = text.replace(/\[ACTION:SHOW_BOOKING_LINK:.*?\]/g, '').trim();
     } 
-    // 3. LOGIC CŨ (FALLBACK)
     else {
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/);
       if (jsonMatch) {
