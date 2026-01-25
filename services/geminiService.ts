@@ -8,9 +8,9 @@ let currentDoctors: Doctor[] = [];
 
 export const initializeChat = async (doctors: Doctor[]) => {
   try {
-    // FIX: Sử dụng import.meta.env trực tiếp để Vite có thể replace value khi build
+    // FIX: Sử dụng optional chaining để an toàn
     // @ts-ignore
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = import.meta.env?.VITE_GEMINI_API_KEY;
     
     if (!apiKey) {
       console.warn("⚠️ Thiếu API Key Gemini (VITE_GEMINI_API_KEY). Chat AI sẽ không hoạt động.");

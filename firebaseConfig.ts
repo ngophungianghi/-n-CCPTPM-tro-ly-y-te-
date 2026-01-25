@@ -2,28 +2,29 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// FIX: Sử dụng import.meta.env trực tiếp để Vite replace static string khi build
-// Dùng @ts-ignore để tránh lỗi type check nếu thiếu definition
+// FIX: Sử dụng optional chaining (?.) để tránh lỗi "Cannot read properties of undefined"
+// Nếu import.meta.env không tồn tại (do lỗi build), nó sẽ trả về undefined thay vì crash app.
 
 export const firebaseConfig = {
   // @ts-ignore
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY,
   // @ts-ignore
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN,
   // @ts-ignore
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID,
   // @ts-ignore
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET,
   // @ts-ignore
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
   // @ts-ignore
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID,
   // @ts-ignore
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env?.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // @ts-ignore
-export const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
+// Kiểm tra an toàn hơn
+export const isFirebaseConfigured = !!(import.meta.env?.VITE_FIREBASE_API_KEY);
 
 let db: any = null;
 let storage: any = null;
