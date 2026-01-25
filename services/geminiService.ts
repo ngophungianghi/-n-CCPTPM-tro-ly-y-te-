@@ -2,13 +2,21 @@ import { GoogleGenAI, Chat } from "@google/genai";
 import { getSystemInstruction } from '../constants';
 import { Doctor } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+// QUAN TRỌNG: Không khởi tạo ai ở global scope để tránh lỗi crash nếu thiếu key
 let chatSession: Chat | null = null;
 let currentDoctors: Doctor[] = [];
 
 export const initializeChat = async (doctors: Doctor[]) => {
   try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("⚠️ Thiếu API Key Gemini. Chat AI sẽ không hoạt động.");
+      return false;
+    }
+
+    // Chỉ khởi tạo khi đã có key và được gọi hàm
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+
     currentDoctors = doctors;
     const doctorContext = doctors.length > 0 
       ? doctors.map(d => `- ID: ${d.id} | Tên: ${d.name} | Chuyên khoa: ${d.specialty} | Kinh nghiệm: ${d.experience} năm | Phí: ${d.price}đ`).join('\n')
@@ -38,11 +46,16 @@ interface GeminiResponse {
 
 export const sendMessageToGemini = async (message: string): Promise<GeminiResponse> => {
   if (!chatSession) {
+    // Thử khởi tạo lại nếu chưa có session
     await initializeChat([]);
   }
 
   if (!chatSession) {
-    throw new Error("Chat session not ready.");
+    // Trả về thông báo lỗi thân thiện thay vì crash ứng dụng
+    return { 
+        text: "Hệ thống AI chưa được kết nối (Thiếu API Key hoặc lỗi mạng). Vui lòng kiểm tra cấu hình.",
+        recommendedDoctorIds: [] 
+    };
   }
 
   try {
@@ -55,7 +68,6 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
     const summaryMatch = text.match(/\[SUMMARY:(.*?)\]/);
     if (summaryMatch) {
         summary = summaryMatch[1].trim();
-        // Xóa tag summary khỏi văn bản hiển thị
         text = text.replace(/\[SUMMARY:.*?\]/g, '').trim();
     }
 
@@ -64,22 +76,16 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
     
     if (actionMatch) {
       const specialtyName = actionMatch[1].trim();
-      
-      // Lọc danh sách bác sĩ theo chuyên khoa mà AI đề xuất
       const matchingDoctors = currentDoctors.filter(d => 
         d.specialty.toLowerCase() === specialtyName.toLowerCase()
       );
 
       if (matchingDoctors.length > 0) {
         recommendedDoctorIds = matchingDoctors.map(d => d.id);
-      } else {
-        console.warn(`Không tìm thấy bác sĩ cho chuyên khoa: ${specialtyName}`);
       }
-
-      // Xóa tag action khỏi văn bản hiển thị
       text = text.replace(/\[ACTION:SHOW_BOOKING_LINK:.*?\]/g, '').trim();
     } 
-    // 3. LOGIC CŨ (FALLBACK): XỬ LÝ JSON (Giữ lại để tương thích ngược nếu AI lỡ trả về JSON)
+    // 3. LOGIC CŨ (FALLBACK)
     else {
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*?"recommended_doctor_ids"[\s\S]*?\}/);
       if (jsonMatch) {
@@ -101,6 +107,6 @@ export const sendMessageToGemini = async (message: string): Promise<GeminiRespon
     return { text, recommendedDoctorIds, summary };
   } catch (error) {
     console.error("Gemini Error:", error);
-    throw new Error("Không thể kết nối với hệ thống AI.");
+    return { text: "Có lỗi khi kết nối với AI. Vui lòng thử lại sau.", recommendedDoctorIds: [] };
   }
 };
