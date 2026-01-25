@@ -712,7 +712,19 @@ function App() {
                             onClick={async () => { 
                                 setIsSubmitting(true); 
                                 const ok = await saveBooking({ doctorId: pendingDoctor.id, doctorName: pendingDoctor.name, doctorImage: pendingDoctor.image, specialty: pendingDoctor.specialty, date: bookingDate, time: bookingTime, userPhone: user?.phone, userFullName: user?.fullName, aiSummary: bookingSummary }); 
-                                if (ok) { setBookingSuccess(true); refreshAdminData(); setTimeout(() => { setShowBookingModal(false); setBookingSuccess(false); setCurrentPage('history'); }, 2000); } 
+                                if (ok) { 
+                                    setBookingSuccess(true); 
+                                    refreshAdminData(); 
+                                    
+                                    // REFRESH: Cập nhật lại danh sách lịch hẹn của user ngay lập tức
+                                    if (user?.phone) {
+                                        const freshBookings = await fetchUserBookings(user.phone);
+                                        setBookings(freshBookings);
+                                        setHistoryTab('upcoming'); // Chuyển tab để user thấy lịch mới
+                                    }
+
+                                    setTimeout(() => { setShowBookingModal(false); setBookingSuccess(false); setCurrentPage('history'); }, 2000); 
+                                } 
                                 setIsSubmitting(false); 
                             }} 
                             className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-teal-600 transition-all disabled:opacity-30"
