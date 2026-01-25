@@ -4,13 +4,21 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+
+  apiKey: "AIzaSyAf-zV7NCVm3wQ1ZZeR8_z0nf1iNYuCd7c",
+
+  authDomain: "healthcareapp-8a21a.firebaseapp.com",
+
+  projectId: "healthcareapp-8a21a",
+
+  storageBucket: "healthcareapp-8a21a.firebasestorage.app",
+
+  messagingSenderId: "240512972044",
+
+  appId: "1:240512972044:web:c6216da2ced27098314529",
+
   measurementId: "G-GZFWYFESNW"
+
 };
 
 export const isFirebaseConfigured = true;
