@@ -242,6 +242,9 @@ function App() {
   // New State for History Tabs
   const [historyTab, setHistoryTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
 
+  // New states for Doctor dashboard tabs
+  const [doctorDashboardTab, setDoctorDashboardTab] = useState<'bookings' | 'slots'>('bookings');
+
   // New states for Doctor slot management
   const [showDoctorSlotModal, setShowDoctorSlotModal] = useState(false);
 
@@ -697,22 +700,66 @@ function App() {
                         <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><CalendarCheck size={32} /></div>
                     </div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                    {doctorBookings.map(b => (
-                        <div key={b.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex gap-4"><div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-slate-500">{b.userFullName[0]}</div><div><h4 className="font-bold text-lg">{b.userFullName}</h4><p className="text-slate-400 text-sm">{b.userPhone}</p></div></div>
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${b.status === 'Đã hoàn thành' ? 'bg-green-100 text-green-700' : b.status === 'Đã xác nhận' ? 'bg-blue-100 text-blue-600' : b.status === 'Đã hủy' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{b.status}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50 mb-4"><div className="flex items-center gap-2"><Calendar size={16} className="text-teal-600" /><span className="text-sm">{b.date.split('-').reverse().join('/')}</span></div><div className="flex items-center gap-2"><Clock size={16} className="text-teal-600" /><span className="text-sm">{b.time}</span></div></div>
-                            <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 mb-4"><p className="text-sm text-slate-700 italic">"{b.aiSummary || "Bệnh nhân không cung cấp triệu chứng."}"</p></div>
-                            <div className="flex gap-3">
-                                {b.status === 'Chờ khám' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã xác nhận'); addToast("Đã xác nhận!", "success"); refreshAdminData(); }} className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-xl font-bold">Xác nhận</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
-                                {b.status === 'Đã xác nhận' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hoàn thành'); addToast("Đã hoàn thành!", "success"); refreshAdminData(); }} className="flex-1 bg-teal-600 text-white py-3 rounded-xl font-bold">Hoàn thành</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
-                            </div>
-                        </div>
-                    ))}
+
+                <div className="flex gap-4 border-b border-slate-200">
+                    <button onClick={() => setDoctorDashboardTab('bookings')} className={`pb-2 px-4 font-bold transition-all ${doctorDashboardTab === 'bookings' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-400 hover:text-slate-600'}`}>Lịch hẹn bệnh nhân</button>
+                    <button onClick={() => setDoctorDashboardTab('slots')} className={`pb-2 px-4 font-bold transition-all ${doctorDashboardTab === 'slots' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-400 hover:text-slate-600'}`}>Lịch rảnh của tôi</button>
                 </div>
+
+                {doctorDashboardTab === 'bookings' ? (
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {doctorBookings.length > 0 ? (
+                            doctorBookings.map(b => (
+                                <div key={b.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex gap-4"><div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-slate-500">{b.userFullName[0]}</div><div><h4 className="font-bold text-lg">{b.userFullName}</h4><p className="text-slate-400 text-sm">{b.userPhone}</p></div></div>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${b.status === 'Đã hoàn thành' ? 'bg-green-100 text-green-700' : b.status === 'Đã xác nhận' ? 'bg-blue-100 text-blue-600' : b.status === 'Đã hủy' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{b.status}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50 mb-4"><div className="flex items-center gap-2"><Calendar size={16} className="text-teal-600" /><span className="text-sm">{b.date.split('-').reverse().join('/')}</span></div><div className="flex items-center gap-2"><Clock size={16} className="text-teal-600" /><span className="text-sm">{b.time}</span></div></div>
+                                    <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 mb-4"><p className="text-sm text-slate-700 italic">"{b.aiSummary || "Bệnh nhân không cung cấp triệu chứng."}"</p></div>
+                                    <div className="flex gap-3">
+                                        {b.status === 'Chờ khám' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã xác nhận'); addToast("Đã xác nhận!", "success"); refreshAdminData(); }} className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-xl font-bold">Xác nhận</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
+                                        {b.status === 'Đã xác nhận' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hoàn thành'); addToast("Đã hoàn thành!", "success"); refreshAdminData(); }} className="flex-1 bg-teal-600 text-white py-3 rounded-xl font-bold">Hoàn thành</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-16 text-center bg-white rounded-[2rem] border border-dashed border-slate-200">
+                                <p className="text-slate-400 font-bold">Chưa có lịch hẹn nào.</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {currentDoctorProfile?.availableSlots && currentDoctorProfile.availableSlots.length > 0 ? (
+                            (() => {
+                                const grouped = currentDoctorProfile.availableSlots.reduce((acc: any, slot) => {
+                                    if (!acc[slot.date]) acc[slot.date] = [];
+                                    acc[slot.date].push(slot.time);
+                                    return acc;
+                                }, {});
+                                return Object.keys(grouped).sort().map(date => (
+                                    <div key={date} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-3 mb-4 border-b border-slate-50 pb-3">
+                                            <div className="p-2 bg-teal-50 text-teal-600 rounded-xl"><Calendar size={18}/></div>
+                                            <h4 className="font-black text-slate-800">{date.split('-').reverse().join('/')}</h4>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {grouped[date].sort().map((time: string) => (
+                                                <span key={time} className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-100">{time}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ));
+                            })()
+                        ) : (
+                            <div className="col-span-full py-16 text-center bg-white rounded-[2rem] border border-dashed border-slate-200">
+                                <p className="text-slate-400 font-bold">Bạn chưa thiết lập lịch rảnh nào.</p>
+                                <button onClick={handleDoctorOpenBooking} className="mt-4 text-teal-600 font-bold text-sm hover:underline">+ Thiết lập ngay</button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         )}
 
