@@ -242,9 +242,8 @@ function App() {
   // New State for History Tabs
   const [historyTab, setHistoryTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
 
-  // New states for Doctor booking for patients
-  const [showDoctorBookingModal, setShowDoctorBookingModal] = useState(false);
-  const [doctorBookingPatient, setDoctorBookingPatient] = useState({ fullName: '', phone: '' });
+  // New states for Doctor slot management
+  const [showDoctorSlotModal, setShowDoctorSlotModal] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const maxDate = new Date();
@@ -459,12 +458,25 @@ function App() {
         addToast("Không tìm thấy hồ sơ bác sĩ!", "error");
         return;
     }
-    setPendingDoctor(currentDoctorProfile);
-    setBookingDate('');
-    setBookingTime('');
-    setBookingSummary('');
-    setDoctorBookingPatient({ fullName: '', phone: '' });
-    setShowDoctorBookingModal(true);
+    setEditingDoctor({...currentDoctorProfile});
+    setAdminSelectedDate(todayStr);
+    setShowDoctorSlotModal(true);
+  };
+
+  const onSaveDoctorSlots = async () => {
+    if (!editingDoctor) return;
+    setIsSubmitting(true);
+    try {
+      await saveDoctor(editingDoctor as Doctor);
+      await refreshAdminData();
+      setShowDoctorSlotModal(false);
+      setEditingDoctor(null);
+      addToast("Cập nhật lịch rảnh thành công!", "success");
+    } catch (e) {
+      addToast("Lỗi khi cập nhật lịch!", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-teal-600" size={40} /></div>;
@@ -681,7 +693,7 @@ function App() {
                 <div className="flex flex-col md:flex-row justify-between items-center bg-teal-600 text-white p-8 rounded-[3rem] shadow-xl gap-6">
                     <div><h2 className="text-3xl font-black">Xin chào, {user.fullName}</h2><p className="opacity-90 mt-2">Chúc bác sĩ một ngày làm việc hiệu quả!</p></div>
                     <div className="flex items-center gap-4">
-                        <button onClick={handleDoctorOpenBooking} className="bg-white text-teal-700 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:scale-105 transition-all shadow-lg"><Plus size={20}/> Đặt lịch mới</button>
+                        <button onClick={handleDoctorOpenBooking} className="bg-white text-teal-700 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:scale-105 transition-all shadow-lg"><Clock size={20}/> Quản lý lịch rảnh</button>
                         <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><CalendarCheck size={32} /></div>
                     </div>
                 </div>
@@ -814,91 +826,57 @@ function App() {
         </div>
       )}
 
-      {/* NEW: MODAL DOCTOR BOOKING FOR PATIENT */}
-      {showDoctorBookingModal && pendingDoctor && (
+      {/* NEW: MODAL DOCTOR SLOT MANAGEMENT */}
+      {showDoctorSlotModal && editingDoctor && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
            <div className="bg-white rounded-[3rem] w-full max-w-md p-8 animate-slide-up shadow-2xl relative">
-              <button onClick={() => setShowDoctorBookingModal(false)} className="absolute right-6 top-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X size={20}/></button>
+              <button onClick={() => { setShowDoctorSlotModal(false); setEditingDoctor(null); }} className="absolute right-6 top-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X size={20}/></button>
               <div className="space-y-6">
-                  <div className="mb-6"><h3 className="text-2xl font-black">Đặt lịch cho bệnh nhân</h3><p className="text-teal-600 font-bold text-sm uppercase">Bác sĩ: {pendingDoctor.name}</p></div>
+                  <div className="mb-6"><h3 className="text-2xl font-black">Quản lý lịch rảnh</h3><p className="text-teal-600 font-bold text-sm uppercase">Bác sĩ: {editingDoctor.name}</p></div>
                   
                   <div className="space-y-4">
                       <div>
-                          <label className="font-bold text-xs text-slate-400 uppercase ml-1">Thông tin bệnh nhân</label>
-                          <div className="space-y-3 mt-2">
-                              <input 
-                                type="text" 
-                                placeholder="Họ tên bệnh nhân" 
-                                value={doctorBookingPatient.fullName} 
-                                onChange={e => setDoctorBookingPatient({...doctorBookingPatient, fullName: e.target.value})}
-                                className="w-full bg-slate-50 rounded-2xl p-4 border outline-none focus:border-teal-500"
-                              />
-                              <input 
-                                type="text" 
-                                placeholder="Số điện thoại" 
-                                value={doctorBookingPatient.phone} 
-                                onChange={e => setDoctorBookingPatient({...doctorBookingPatient, phone: e.target.value})}
-                                className="w-full bg-slate-50 rounded-2xl p-4 border outline-none focus:border-teal-500"
-                              />
-                          </div>
+                          <label className="font-bold text-xs text-slate-400 uppercase ml-1 block mb-2">1. Chọn ngày làm việc</label>
+                          <input 
+                            type="date" 
+                            min={todayStr} 
+                            max={maxDateStr} 
+                            className="w-full p-4 rounded-2xl border outline-none focus:border-teal-500 bg-slate-50" 
+                            value={adminSelectedDate} 
+                            onChange={e => setAdminSelectedDate(e.target.value)} 
+                          />
                       </div>
 
-                      <div>
-                          <label className="font-bold text-xs text-slate-400 uppercase ml-1">Chọn thời gian</label>
-                          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mt-2">
-                              {availableDatesForDoctor.map(date => (
-                                  <button key={date} onClick={() => setBookingDate(date)} className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${bookingDate === date ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600'}`}>
-                                      {date === todayStr ? 'Hôm nay' : date.split('-').reverse().slice(0,2).join('/')}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-
-                      {bookingDate && (
+                      {adminSelectedDate && (
                           <div className="animate-fade-in">
-                              <div className="grid grid-cols-3 gap-2 mt-2">
-                                  {availableTimesForDate.map(time => {
-                                      const isBooked = occupiedSlots.includes(time);
-                                      const isSelected = bookingTime === time;
+                              <label className="font-bold text-xs text-slate-400 uppercase ml-1 block mb-2">2. Chọn các khung giờ rảnh</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                  {TIME_OPTIONS.map(time => {
+                                      const isSelected = (editingDoctor.availableSlots || []).some(s => s.date === adminSelectedDate && s.time === time);
                                       return (
-                                          <button key={time} disabled={isBooked} onClick={() => setBookingTime(time)} className={`py-3 rounded-xl font-bold text-xs border transition-all ${isBooked ? 'bg-slate-100 text-slate-300' : isSelected ? 'bg-teal-600 text-white shadow-md' : 'bg-white hover:border-teal-50'}`}>
+                                          <button 
+                                            key={time} 
+                                            type="button" 
+                                            onClick={() => toggleSlot(adminSelectedDate, time)} 
+                                            className={`py-3 rounded-xl font-bold text-xs border transition-all ${isSelected ? 'bg-teal-600 text-white border-teal-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-teal-500'}`}
+                                          >
                                               {time}
                                           </button>
                                       );
                                   })}
                               </div>
+                              <p className="text-[10px] text-slate-400 mt-3 italic">* Nhấn để chọn hoặc bỏ chọn khung giờ rảnh của bạn.</p>
                           </div>
                       )}
                   </div>
 
                   <div className="pt-6 border-t border-slate-100">
                       <button 
-                          disabled={!bookingDate || !bookingTime || !doctorBookingPatient.fullName || !doctorBookingPatient.phone || isSubmitting} 
-                          onClick={async () => { 
-                              setIsSubmitting(true); 
-                              const ok = await saveBooking({ 
-                                doctorId: pendingDoctor.id, 
-                                doctorName: pendingDoctor.name, 
-                                doctorImage: pendingDoctor.image, 
-                                specialty: pendingDoctor.specialty, 
-                                date: bookingDate, 
-                                time: bookingTime, 
-                                userPhone: doctorBookingPatient.phone, 
-                                userFullName: doctorBookingPatient.fullName, 
-                                aiSummary: "Lịch hẹn được bác sĩ tạo thủ công." 
-                              }); 
-                              if (ok) { 
-                                  addToast("Đã tạo lịch hẹn thành công!", "success");
-                                  refreshAdminData(); 
-                                  setShowDoctorBookingModal(false);
-                              } else {
-                                  addToast("Lỗi khi tạo lịch hẹn.", "error");
-                              }
-                              setIsSubmitting(false); 
-                          }} 
+                          disabled={isSubmitting} 
+                          onClick={onSaveDoctorSlots} 
                           className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-teal-600 transition-all disabled:opacity-30"
                       >
-                          {isSubmitting ? <Loader2 className="animate-spin mx-auto"/> : "Xác nhận đặt lịch"}
+                          {isSubmitting ? <Loader2 className="animate-spin mx-auto"/> : "Lưu thay đổi"}
                       </button>
                   </div>
               </div>
