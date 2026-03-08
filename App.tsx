@@ -482,6 +482,32 @@ function App() {
     }
   };
 
+  const handleDeleteSlot = async (date: string, time: string) => {
+    if (!currentDoctorProfile) return;
+    
+    // Check if slot is already booked
+    const isBooked = allBookings.some(b => 
+      b.doctorId === currentDoctorProfile.id && 
+      b.date === date && 
+      b.time === time && 
+      (b.status === 'Chờ khám' || b.status === 'Đã xác nhận')
+    );
+
+    if (isBooked) {
+      addToast("Khung giờ này đã có bệnh nhân đặt lịch, không thể xóa!", "error");
+      return;
+    }
+
+    const updatedSlots = (currentDoctorProfile.availableSlots || []).filter(s => !(s.date === date && s.time === time));
+    try {
+      await saveDoctor({ ...currentDoctorProfile, availableSlots: updatedSlots });
+      await refreshAdminData();
+      addToast("Đã xóa khung giờ rảnh.", "success");
+    } catch (e) {
+      addToast("Lỗi khi xóa khung giờ!", "error");
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-teal-600" size={40} /></div>;
 
   return (
@@ -746,7 +772,18 @@ function App() {
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {grouped[date].sort().map((time: string) => (
-                                                <span key={time} className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-100">{time}</span>
+                                                <div key={time} className="group/slot relative">
+                                                    <span className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-100 flex items-center gap-2">
+                                                        {time}
+                                                        <button 
+                                                            onClick={() => handleDeleteSlot(date, time)}
+                                                            className="text-red-400 hover:text-red-600 transition-colors"
+                                                            title="Xóa khung giờ này"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </span>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
