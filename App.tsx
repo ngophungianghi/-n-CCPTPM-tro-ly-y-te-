@@ -242,6 +242,10 @@ function App() {
   // New State for History Tabs
   const [historyTab, setHistoryTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
 
+  // New states for Doctor booking for patients
+  const [showDoctorBookingModal, setShowDoctorBookingModal] = useState(false);
+  const [doctorBookingPatient, setDoctorBookingPatient] = useState({ fullName: '', phone: '' });
+
   const todayStr = new Date().toISOString().split('T')[0];
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 6);
@@ -379,6 +383,11 @@ function App() {
     return profile ? allBookings.filter(b => b.doctorId === profile.id) : [];
   }, [allBookings, user, doctors]);
 
+  const currentDoctorProfile = useMemo(() => {
+    if (user?.role !== 'doctor') return null;
+    return doctors.find(d => (d.userPhone && d.userPhone === user.phone) || d.name.includes(user.fullName)) || null;
+  }, [user, doctors]);
+
   const availableDatesForDoctor = useMemo(() => {
     if (!pendingDoctor) return [];
     const dates = (pendingDoctor.availableSlots || []).filter(s => s.date >= todayStr).map(s => s.date);
@@ -443,6 +452,19 @@ function App() {
         setIsCancelling(false);
         setCancelModalData({ show: false, bookingId: null });
     }
+  };
+
+  const handleDoctorOpenBooking = () => {
+    if (!currentDoctorProfile) {
+        addToast("Không tìm thấy hồ sơ bác sĩ!", "error");
+        return;
+    }
+    setPendingDoctor(currentDoctorProfile);
+    setBookingDate('');
+    setBookingTime('');
+    setBookingSummary('');
+    setDoctorBookingPatient({ fullName: '', phone: '' });
+    setShowDoctorBookingModal(true);
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-teal-600" size={40} /></div>;
@@ -656,9 +678,12 @@ function App() {
 
         {currentPage === 'doctor_dashboard' && user?.role === 'doctor' && (
             <div className="space-y-8 animate-fade-in">
-                <div className="flex justify-between items-center bg-teal-600 text-white p-8 rounded-[3rem] shadow-xl">
+                <div className="flex flex-col md:flex-row justify-between items-center bg-teal-600 text-white p-8 rounded-[3rem] shadow-xl gap-6">
                     <div><h2 className="text-3xl font-black">Xin chào, {user.fullName}</h2><p className="opacity-90 mt-2">Chúc bác sĩ một ngày làm việc hiệu quả!</p></div>
-                    <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><CalendarCheck size={32} /></div>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleDoctorOpenBooking} className="bg-white text-teal-700 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:scale-105 transition-all shadow-lg"><Plus size={20}/> Đặt lịch mới</button>
+                        <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><CalendarCheck size={32} /></div>
+                    </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                     {doctorBookings.map(b => (
@@ -783,6 +808,98 @@ function App() {
                           const isSelected = (editingDoctor.availableSlots || []).some(s => s.date === adminSelectedDate && s.time === time);
                           return (<button key={time} type="button" onClick={() => toggleSlot(adminSelectedDate, time)} className={`py-3 rounded-xl font-bold text-sm border ${isSelected ? 'bg-teal-600 text-white border-teal-600 shadow-lg' : 'bg-white text-slate-500 border-slate-200'}`}>{time}</button>);
                       })}</div>)}
+                  </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* NEW: MODAL DOCTOR BOOKING FOR PATIENT */}
+      {showDoctorBookingModal && pendingDoctor && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+           <div className="bg-white rounded-[3rem] w-full max-w-md p-8 animate-slide-up shadow-2xl relative">
+              <button onClick={() => setShowDoctorBookingModal(false)} className="absolute right-6 top-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X size={20}/></button>
+              <div className="space-y-6">
+                  <div className="mb-6"><h3 className="text-2xl font-black">Đặt lịch cho bệnh nhân</h3><p className="text-teal-600 font-bold text-sm uppercase">Bác sĩ: {pendingDoctor.name}</p></div>
+                  
+                  <div className="space-y-4">
+                      <div>
+                          <label className="font-bold text-xs text-slate-400 uppercase ml-1">Thông tin bệnh nhân</label>
+                          <div className="space-y-3 mt-2">
+                              <input 
+                                type="text" 
+                                placeholder="Họ tên bệnh nhân" 
+                                value={doctorBookingPatient.fullName} 
+                                onChange={e => setDoctorBookingPatient({...doctorBookingPatient, fullName: e.target.value})}
+                                className="w-full bg-slate-50 rounded-2xl p-4 border outline-none focus:border-teal-500"
+                              />
+                              <input 
+                                type="text" 
+                                placeholder="Số điện thoại" 
+                                value={doctorBookingPatient.phone} 
+                                onChange={e => setDoctorBookingPatient({...doctorBookingPatient, phone: e.target.value})}
+                                className="w-full bg-slate-50 rounded-2xl p-4 border outline-none focus:border-teal-500"
+                              />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="font-bold text-xs text-slate-400 uppercase ml-1">Chọn thời gian</label>
+                          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mt-2">
+                              {availableDatesForDoctor.map(date => (
+                                  <button key={date} onClick={() => setBookingDate(date)} className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${bookingDate === date ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600'}`}>
+                                      {date === todayStr ? 'Hôm nay' : date.split('-').reverse().slice(0,2).join('/')}
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      {bookingDate && (
+                          <div className="animate-fade-in">
+                              <div className="grid grid-cols-3 gap-2 mt-2">
+                                  {availableTimesForDate.map(time => {
+                                      const isBooked = occupiedSlots.includes(time);
+                                      const isSelected = bookingTime === time;
+                                      return (
+                                          <button key={time} disabled={isBooked} onClick={() => setBookingTime(time)} className={`py-3 rounded-xl font-bold text-xs border transition-all ${isBooked ? 'bg-slate-100 text-slate-300' : isSelected ? 'bg-teal-600 text-white shadow-md' : 'bg-white hover:border-teal-50'}`}>
+                                              {time}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100">
+                      <button 
+                          disabled={!bookingDate || !bookingTime || !doctorBookingPatient.fullName || !doctorBookingPatient.phone || isSubmitting} 
+                          onClick={async () => { 
+                              setIsSubmitting(true); 
+                              const ok = await saveBooking({ 
+                                doctorId: pendingDoctor.id, 
+                                doctorName: pendingDoctor.name, 
+                                doctorImage: pendingDoctor.image, 
+                                specialty: pendingDoctor.specialty, 
+                                date: bookingDate, 
+                                time: bookingTime, 
+                                userPhone: doctorBookingPatient.phone, 
+                                userFullName: doctorBookingPatient.fullName, 
+                                aiSummary: "Lịch hẹn được bác sĩ tạo thủ công." 
+                              }); 
+                              if (ok) { 
+                                  addToast("Đã tạo lịch hẹn thành công!", "success");
+                                  refreshAdminData(); 
+                                  setShowDoctorBookingModal(false);
+                              } else {
+                                  addToast("Lỗi khi tạo lịch hẹn.", "error");
+                              }
+                              setIsSubmitting(false); 
+                          }} 
+                          className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-teal-600 transition-all disabled:opacity-30"
+                      >
+                          {isSubmitting ? <Loader2 className="animate-spin mx-auto"/> : "Xác nhận đặt lịch"}
+                      </button>
                   </div>
               </div>
            </div>

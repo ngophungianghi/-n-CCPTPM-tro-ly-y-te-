@@ -44,6 +44,20 @@ export interface User {
   role: 'admin' | 'customer' | 'doctor';
 }
 
+export interface Medication {
+  name: string;
+  dosage: string; // e.g., "1 viên"
+  frequency: string; // e.g., "Sáng, Tối"
+  duration: string; // e.g., "5 ngày"
+  notes?: string;
+}
+
+export interface Prescription {
+  medications: Medication[];
+  note: string;
+  reExamDate?: string; // YYYY-MM-DD
+}
+
 export interface Booking {
   id: string;
   doctorId: string;
@@ -57,4 +71,5 @@ export interface Booking {
   userFullName: string;
   timestamp: Date;
   aiSummary?: string; // Tóm tắt triệu chứng từ AI
+  prescription?: Prescription; // Đơn thuốc do bác sĩ kê
 }

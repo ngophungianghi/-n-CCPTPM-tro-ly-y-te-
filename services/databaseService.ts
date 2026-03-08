@@ -272,3 +272,15 @@ export const updateBookingStatus = async (bookingId: string, newStatus: string):
     return false;
   }
 };
+
+export const updateBookingPrescription = async (bookingId: string, prescription: any): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "bookings", bookingId);
+    await updateDoc(docRef, { prescription });
+    return true;
+  } catch (e) {
+    console.error("Error updating prescription:", e);
+    return false;
+  }
+};
