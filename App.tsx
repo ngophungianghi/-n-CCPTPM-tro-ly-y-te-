@@ -16,7 +16,8 @@ import { Doctor, User, Booking, Specialty, AvailableSlot } from './types';
 import { 
   fetchDoctors, saveBooking, fetchUserBookings, updateBookingStatus, 
   fetchAllBookings, saveDoctor, deleteDoctor, registerUser, loginUser,
-  checkAvailability, fetchAllUsers, uploadDoctorImage, updateUserRole
+  checkAvailability, fetchAllUsers, uploadDoctorImage, updateUserRole,
+  updateBookingInpatient
 } from './services/databaseService';
 import { initializeChat } from './services/geminiService';
 import { AdminBedManagement } from './components/AdminBedManagement';
@@ -749,7 +750,13 @@ function App() {
                                     <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 mb-4"><p className="text-sm text-slate-700 italic">"{b.aiSummary || "Bệnh nhân không cung cấp triệu chứng."}"</p></div>
                                     <div className="flex gap-3">
                                         {b.status === 'Chờ khám' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã xác nhận'); addToast("Đã xác nhận!", "success"); refreshAdminData(); }} className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-xl font-bold">Xác nhận</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
-                                        {b.status === 'Đã xác nhận' && (<><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hoàn thành'); addToast("Đã hoàn thành!", "success"); refreshAdminData(); }} className="flex-1 bg-teal-600 text-white py-3 rounded-xl font-bold">Hoàn thành</button><button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button></>)}
+                                        {b.status === 'Đã xác nhận' && (
+                                            <>
+                                                <button onClick={async () => { await updateBookingStatus(b.id, 'Đã hoàn thành'); addToast("Đã hoàn thành!", "success"); refreshAdminData(); }} className="flex-1 bg-teal-600 text-white py-3 rounded-xl font-bold">Hoàn thành</button>
+                                                <button onClick={async () => { await updateBookingInpatient(b.id, true); addToast("Đã chỉ định nhập viện!", "success"); refreshAdminData(); }} className="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold">Nhập viện</button>
+                                                <button onClick={async () => { await updateBookingStatus(b.id, 'Đã hủy'); addToast("Đã hủy!", "info"); refreshAdminData(); }} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold">Hủy</button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))

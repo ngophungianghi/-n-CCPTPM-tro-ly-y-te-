@@ -284,3 +284,18 @@ export const updateBookingPrescription = async (bookingId: string, prescription:
     return false;
   }
 };
+
+export const updateBookingInpatient = async (bookingId: string, needsInpatient: boolean): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, "bookings", bookingId);
+    await updateDoc(docRef, { 
+      needsInpatient,
+      status: 'Đã hoàn thành'
+    });
+    return true;
+  } catch (e) {
+    console.error("Error updating inpatient status:", e);
+    return false;
+  }
+};
