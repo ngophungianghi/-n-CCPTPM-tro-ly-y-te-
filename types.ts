@@ -72,6 +72,8 @@ export interface Booking {
   timestamp: Date;
   aiSummary?: string; // Tóm tắt triệu chứng từ AI
   prescription?: Prescription; // Đơn thuốc do bác sĩ kê
+  needsInpatient?: boolean; // Cần nhập viện
+  isAdmitted?: boolean; // Đã nhập viện
 }
 
 export interface Bed {
@@ -86,7 +88,8 @@ export interface BedAssignment {
   patientId: string;
   patientName: string;
   diagnosis: string;
-  expectedStartTime: string;
+  startTime: string;
   expectedEndTime: string;
   status: 'active' | 'discharged';
+  isEmergency?: boolean;
 }

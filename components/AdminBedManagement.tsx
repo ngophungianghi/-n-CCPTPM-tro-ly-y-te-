@@ -2,35 +2,44 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Trash2, CheckCircle, X, Loader2, 
   Bed as BedIcon, Calendar, Info,
-  Clock
+  Clock, Search, UserPlus, AlertCircle
 } from 'lucide-react';
-import { Bed, BedAssignment, Booking } from '../types';
+import { Bed, BedAssignment, Booking, User } from '../types';
 import { 
   subscribeToBeds, subscribeToAssignments, bulkCreateBeds, 
   deleteBed, assignBed, dischargePatient, getOccupancyForDate 
 } from '../services/bedService';
-import { fetchAllBookings } from '../services/databaseService';
+import { fetchAllBookings, fetchAllUsers } from '../services/databaseService';
 
 export const AdminBedManagement: React.FC = () => {
   const [beds, setBeds] = useState<Bed[]>([]);
   const [assignments, setAssignments] = useState<BedAssignment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [bulkCount, setBulkCount] = useState(10);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<Booking | null>(null);
+  
+  // Hybrid Input State
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  
   const [diagnosis, setDiagnosis] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [statsDate, setStatsDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState({ occupied: 0, available: 0 });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   useEffect(() => {
     const unsubBeds = subscribeToBeds(setBeds);
     const unsubAssignments = subscribeToAssignments(setAssignments);
     
     fetchAllBookings().then(setBookings);
+    fetchAllUsers().then(setUsers);
     
     setLoading(false);
     return () => {
@@ -38,6 +47,24 @@ export const AdminBedManagement: React.FC = () => {
       unsubAssignments();
     };
   }, []);
+
+  useEffect(() => {
+    const checkAutoDischarge = async () => {
+      const now = new Date().toISOString();
+      const expiredActiveAssignments = assignments.filter(a => 
+        a.status === 'active' && 
+        a.expectedEndTime < now
+      );
+
+      for (const assignment of expiredActiveAssignments) {
+        await dischargePatient(assignment.id, assignment.bedId);
+      }
+    };
+
+    if (assignments.length > 0) {
+      checkAutoDischarge();
+    }
+  }, [assignments]);
 
   useEffect(() => {
     const calculateStats = async () => {
@@ -53,9 +80,17 @@ export const AdminBedManagement: React.FC = () => {
   const recommendedPatients = useMemo(() => {
     return bookings.filter(b => 
       b.status === 'Đã hoàn thành' && 
-      b.prescription?.note?.toLowerCase().includes('nhập viện')
+      b.needsInpatient === true &&
+      !b.isAdmitted
     );
   }, [bookings]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => 
+      u.role === 'customer' && 
+      (u.fullName.toLowerCase().includes(userSearchTerm.toLowerCase()) || u.phone.includes(userSearchTerm))
+    ).slice(0, 5);
+  }, [users, userSearchTerm]);
 
   const handleBulkCreate = async () => {
     if (bulkCount <= 0) return;
@@ -63,24 +98,35 @@ export const AdminBedManagement: React.FC = () => {
   };
 
   const handleAssign = async () => {
-    if (!selectedBed || !selectedPatient || !startTime || !endTime) return;
+    if (!selectedBed || (!selectedBooking && !selectedUser) || !startTime || !endTime || !diagnosis) return;
     
+    const patientId = selectedBooking ? selectedBooking.userPhone : selectedUser!.phone;
+    const patientName = selectedBooking ? selectedBooking.userFullName : selectedUser!.fullName;
+    const isEmergency = !!selectedUser;
+
     await assignBed({
       bedId: selectedBed.id,
-      patientId: selectedPatient.userPhone,
-      patientName: selectedPatient.userFullName,
-      diagnosis: diagnosis || selectedPatient.aiSummary || 'Chưa có chẩn đoán',
-      expectedStartTime: startTime,
+      patientId,
+      patientName,
+      diagnosis,
+      startTime,
       expectedEndTime: endTime,
-      status: 'active'
-    });
+      status: 'active',
+      isEmergency
+    }, selectedBooking?.id);
     
     setShowAssignModal(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setSelectedBed(null);
-    setSelectedPatient(null);
+    setSelectedBooking(null);
+    setSelectedUser(null);
     setDiagnosis('');
     setStartTime('');
     setEndTime('');
+    setUserSearchTerm('');
   };
 
   const activeAssignments = useMemo(() => {
@@ -141,6 +187,7 @@ export const AdminBedManagement: React.FC = () => {
             <div className="flex gap-2 mt-1">
               <input 
                 type="date" 
+                min={todayStr}
                 value={statsDate} 
                 onChange={(e) => setStatsDate(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-teal-500"
@@ -231,37 +278,109 @@ export const AdminBedManagement: React.FC = () => {
       {/* Assign Modal */}
       {showAssignModal && selectedBed && (
         <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-lg p-8 animate-slide-up shadow-2xl">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl p-8 animate-slide-up shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-hide">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-black text-slate-900">Xếp giường {selectedBed.bedNumber}</h3>
-              <button onClick={() => setShowAssignModal(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200">
+              <button onClick={() => { setShowAssignModal(false); resetForm(); }} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase ml-1">Chọn bệnh nhân chỉ định</label>
-                <div className="grid gap-2 mt-2 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
-                  {recommendedPatients.length > 0 ? recommendedPatients.map(p => (
-                    <button 
-                      key={p.id}
-                      onClick={() => setSelectedPatient(p)}
-                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left
-                        ${selectedPatient?.id === p.id ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-slate-200'}`}
-                    >
-                      <div>
-                        <p className="font-bold text-slate-800">{p.userFullName}</p>
-                        <p className="text-xs text-slate-400">{p.aiSummary || 'Khám tổng quát'}</p>
+            <div className="space-y-8">
+              {/* Hybrid Input Section */}
+              <div className="grid md:grid-cols-2 gap-8 relative">
+                {/* Option 1: From Appointments */}
+                <div className={`${selectedUser ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Lựa chọn 1: Từ chỉ định</label>
+                    {selectedBooking && (
+                      <button onClick={() => setSelectedBooking(null)} className="text-[10px] font-bold text-red-500 hover:underline">Xóa chọn</button>
+                    )}
+                  </div>
+                  <div className="grid gap-2 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
+                    {recommendedPatients.length > 0 ? recommendedPatients.map(p => (
+                      <button 
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedBooking(p);
+                          setDiagnosis(p.prescription?.note || p.aiSummary || '');
+                        }}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left
+                          ${selectedBooking?.id === p.id ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-slate-200'}`}
+                      >
+                        <div>
+                          <p className="font-bold text-slate-800">{p.userFullName}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{p.aiSummary || 'Khám tổng quát'}</p>
+                        </div>
+                        {selectedBooking?.id === p.id && <CheckCircle size={18} className="text-teal-600" />}
+                      </button>
+                    )) : (
+                      <p className="text-sm text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">Không có bệnh nhân chờ nhập viện.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-1 z-10">
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">--- HOẶC ---</span>
+                </div>
+                <div className="md:hidden flex justify-center py-2">
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">--- HOẶC ---</span>
+                </div>
+
+                {/* Option 2: Direct Input */}
+                <div className={`${selectedBooking ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Lựa chọn 2: Nhập trực tiếp</label>
+                    {selectedUser && (
+                      <button onClick={() => { setSelectedUser(null); setUserSearchTerm(''); }} className="text-[10px] font-bold text-red-500 hover:underline">Xóa chọn</button>
+                    )}
+                  </div>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                      type="text"
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      placeholder="Tìm tên hoặc SĐT..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 outline-none focus:border-teal-500 text-sm"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    {userSearchTerm && filteredUsers.map(u => (
+                      <button 
+                        key={u.phone}
+                        onClick={() => setSelectedUser(u)}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left
+                          ${selectedUser?.phone === u.phone ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-slate-200'}`}
+                      >
+                        <div>
+                          <p className="font-bold text-slate-800">{u.fullName}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{u.phone}</p>
+                        </div>
+                        {selectedUser?.phone === u.phone ? <CheckCircle size={18} className="text-teal-600" /> : <UserPlus size={18} className="text-slate-300" />}
+                      </button>
+                    ))}
+                    {!userSearchTerm && !selectedUser && (
+                      <div className="p-8 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
+                        <Search size={24} />
+                        <p className="text-[10px] font-bold mt-2">Nhập để tìm bệnh nhân</p>
                       </div>
-                      {selectedPatient?.id === p.id && <CheckCircle size={18} className="text-teal-600" />}
-                    </button>
-                  )) : (
-                    <p className="text-sm text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">Không có bệnh nhân chờ nhập viện.</p>
-                  )}
+                    )}
+                    {selectedUser && !userSearchTerm && (
+                       <div className="p-4 border-2 border-teal-500 bg-teal-50 rounded-2xl flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-slate-800">{selectedUser.fullName}</p>
+                            <p className="text-[10px] text-slate-400">{selectedUser.phone}</p>
+                          </div>
+                          <CheckCircle size={18} className="text-teal-600" />
+                       </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              {/* Time & Diagnosis Section */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase ml-1">Từ ngày</label>
@@ -293,8 +412,17 @@ export const AdminBedManagement: React.FC = () => {
                 />
               </div>
 
+              {selectedUser && (
+                <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="text-amber-600 shrink-0" size={18} />
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    <strong>Lưu ý:</strong> Bạn đang chọn nhập viện trực tiếp. Hệ thống sẽ đánh dấu đây là trường hợp <strong>Cấp cứu/Nhập viện thẳng</strong>.
+                  </p>
+                </div>
+              )}
+
               <button 
-                disabled={!selectedPatient || !startTime || !endTime}
+                disabled={(!selectedBooking && !selectedUser) || !startTime || !endTime || !diagnosis}
                 onClick={handleAssign}
                 className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-teal-600 transition-all disabled:opacity-30"
               >

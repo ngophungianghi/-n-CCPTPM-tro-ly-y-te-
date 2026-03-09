@@ -61,7 +61,7 @@ export const deleteBed = async (id: string) => {
   await deleteDoc(bedRef);
 };
 
-export const assignBed = async (assignment: Omit<BedAssignment, 'id'>) => {
+export const assignBed = async (assignment: Omit<BedAssignment, 'id'>, bookingId?: string) => {
   if (!db) return;
   // 1. Create assignment
   const docRef = await addDoc(collection(db, ASSIGNMENTS_COLLECTION), {
@@ -72,6 +72,15 @@ export const assignBed = async (assignment: Omit<BedAssignment, 'id'>) => {
   // 2. Update bed status
   const bedRef = doc(db, BEDS_COLLECTION, assignment.bedId);
   await updateDoc(bedRef, { status: 'occupied' });
+
+  // 3. Update booking if provided
+  if (bookingId) {
+    const bookingRef = doc(db, "bookings", bookingId);
+    await updateDoc(bookingRef, {
+      needsInpatient: false,
+      isAdmitted: true
+    });
+  }
 
   return docRef.id;
 };
@@ -99,7 +108,7 @@ export const getOccupancyForDate = async (date: string) => {
   
   // Filter by date: assignment is active on this date if date is between start and end
   return assignments.filter(a => {
-    const start = a.expectedStartTime.split('T')[0];
+    const start = a.startTime.split('T')[0];
     const end = a.expectedEndTime.split('T')[0];
     return date >= start && date <= end && a.status === 'active';
   });
