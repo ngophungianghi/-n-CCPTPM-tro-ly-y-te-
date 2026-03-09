@@ -10,7 +10,7 @@ import {
   AlertCircle, LayoutDashboard, TrendingUp, CalendarCheck, XCircle,
   Shield, Zap, Activity, Star, Award, HeartPulse, Bot, FileText, UserPlus,
   CalendarDays, CalendarClock, CheckCircle2, RefreshCcw, MapPin, AlertTriangle,
-  Quote, ShieldCheck, Globe, Smartphone
+  Quote, ShieldCheck, Globe, Smartphone, Bed as BedIcon
 } from 'lucide-react';
 import { Doctor, User, Booking, Specialty, AvailableSlot } from './types';
 import { 
@@ -19,8 +19,10 @@ import {
   checkAvailability, fetchAllUsers, uploadDoctorImage, updateUserRole
 } from './services/databaseService';
 import { initializeChat } from './services/geminiService';
+import { AdminBedManagement } from './components/AdminBedManagement';
+import { PatientBedMap } from './components/PatientBedMap';
 
-type Page = 'home' | 'chat' | 'doctors' | 'history' | 'auth' | 'admin' | 'doctor_dashboard';
+type Page = 'home' | 'chat' | 'doctors' | 'history' | 'auth' | 'admin' | 'doctor_dashboard' | 'beds' | 'admin_beds';
 type AuthMode = 'login' | 'register';
 type ToastType = 'success' | 'error' | 'info';
 
@@ -528,7 +530,9 @@ function App() {
                     <NavBtn active={currentPage === 'chat'} onClick={() => setCurrentPage('chat')} icon={<MessageSquare size={18}/>} label="Tư vấn AI"/>
                     <NavBtn active={currentPage === 'doctors'} onClick={() => setCurrentPage('doctors')} icon={<Briefcase size={18}/>} label="Bác sĩ"/>
                     <NavBtn active={currentPage === 'history'} onClick={() => setCurrentPage('history')} icon={<History size={18}/>} label="Lịch sử"/>
+                    <NavBtn active={currentPage === 'beds'} onClick={() => setCurrentPage('beds')} icon={<BedIcon size={18}/>} label="Sơ đồ giường"/>
                     {user?.role === 'admin' && <NavBtn active={currentPage === 'admin'} onClick={() => setCurrentPage('admin')} icon={<Settings size={18}/>} label="Admin"/>}
+                    {user?.role === 'admin' && <NavBtn active={currentPage === 'admin_beds'} onClick={() => setCurrentPage('admin_beds')} icon={<LayoutDashboard size={18}/>} label="QL Giường"/>}
                 </>
              )}
           </div>
@@ -836,6 +840,9 @@ function App() {
             )}
           </div>
         )}
+
+        {currentPage === 'admin_beds' && user?.role === 'admin' && <AdminBedManagement />}
+        {currentPage === 'beds' && <PatientBedMap />}
 
         {currentPage === 'auth' && (
             <div className="flex flex-col items-center py-10 animate-slide-up">

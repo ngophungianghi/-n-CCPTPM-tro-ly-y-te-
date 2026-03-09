@@ -73,3 +73,20 @@ export interface Booking {
   aiSummary?: string; // Tóm tắt triệu chứng từ AI
   prescription?: Prescription; // Đơn thuốc do bác sĩ kê
 }
+
+export interface Bed {
+  id: string;
+  bedNumber: string;
+  status: 'available' | 'occupied';
+}
+
+export interface BedAssignment {
+  id: string;
+  bedId: string;
+  patientId: string;
+  patientName: string;
+  diagnosis: string;
+  expectedStartTime: string;
+  expectedEndTime: string;
+  status: 'active' | 'discharged';
+}
