@@ -9,7 +9,7 @@ import {
   subscribeToBeds, subscribeToAssignments, bulkCreateBeds, 
   deleteBed, assignBed, dischargePatient, getOccupancyForDate 
 } from '../services/bedService';
-import { fetchAllBookings, fetchAllUsers } from '../services/databaseService';
+import { subscribeToBookings, fetchAllUsers } from '../services/databaseService';
 
 export const AdminBedManagement: React.FC = () => {
   const [beds, setBeds] = useState<Bed[]>([]);
@@ -37,14 +37,15 @@ export const AdminBedManagement: React.FC = () => {
   useEffect(() => {
     const unsubBeds = subscribeToBeds(setBeds);
     const unsubAssignments = subscribeToAssignments(setAssignments);
+    const unsubBookings = subscribeToBookings(setBookings);
     
-    fetchAllBookings().then(setBookings);
     fetchAllUsers().then(setUsers);
     
     setLoading(false);
     return () => {
       unsubBeds();
       unsubAssignments();
+      unsubBookings();
     };
   }, []);
 

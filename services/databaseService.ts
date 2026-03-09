@@ -12,7 +12,8 @@ import {
   deleteDoc,
   query, 
   where, 
-  serverTimestamp 
+  serverTimestamp,
+  onSnapshot
 } from "firebase/firestore";
 import { 
   ref, 
@@ -260,6 +261,19 @@ export const fetchAllBookings = async (): Promise<Booking[]> => {
   } catch (e) {
     return [];
   }
+};
+
+export const subscribeToBookings = (callback: (bookings: Booking[]) => void) => {
+  if (!db) return () => {};
+  const q = query(collection(db, "bookings"));
+  return onSnapshot(q, (snapshot) => {
+    const results = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(), 
+      timestamp: doc.data().timestamp?.toDate() || new Date() 
+    } as Booking));
+    callback(results.sort((a: Booking, b: Booking) => b.timestamp.getTime() - a.timestamp.getTime()));
+  });
 };
 
 export const updateBookingStatus = async (bookingId: string, newStatus: string): Promise<boolean> => {
