@@ -70,17 +70,51 @@ export const deleteBed = async (id: string) => {
   await deleteDoc(bedRef);
 };
 
+export const checkOverlap = async (bedId: string, startTime: string, endTime: string): Promise<boolean> => {
+  if (!db) return false;
+  const q = query(
+    collection(db, ASSIGNMENTS_COLLECTION),
+    where("bedId", "==", bedId),
+    where("status", "==", "active")
+  );
+  
+  const snapshot = await getDocs(q);
+  const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BedAssignment));
+  
+  const newStart = new Date(startTime).getTime();
+  const newEnd = new Date(endTime).getTime();
+
+  return assignments.some(a => {
+    const existingStart = new Date(a.startTime).getTime();
+    const existingEnd = new Date(a.expectedEndTime).getTime();
+    
+    // Overlap condition: (StartA <= EndB) and (EndA >= StartB)
+    return newStart < existingEnd && newEnd > existingStart;
+  });
+};
+
 export const assignBed = async (assignment: Omit<BedAssignment, 'id'>, bookingId?: string) => {
   if (!db) return;
+
+  // Check for overlap before assigning
+  const hasOverlap = await checkOverlap(assignment.bedId, assignment.startTime, assignment.expectedEndTime);
+  if (hasOverlap) {
+    throw new Error("Giường đã có lịch hẹn trùng với thời gian này.");
+  }
+
   // 1. Create assignment
   const docRef = await addDoc(collection(db, ASSIGNMENTS_COLLECTION), {
     ...assignment,
     status: 'active'
   });
 
-  // 2. Update bed status
-  const bedRef = doc(db, BEDS_COLLECTION, assignment.bedId);
-  await updateDoc(bedRef, { status: 'occupied' });
+  // 2. Update bed status (only if starting now or in the past)
+  const now = new Date().getTime();
+  const startTime = new Date(assignment.startTime).getTime();
+  if (startTime <= now) {
+    const bedRef = doc(db, BEDS_COLLECTION, assignment.bedId);
+    await updateDoc(bedRef, { status: 'occupied' });
+  }
 
   // 3. Update booking if provided
   if (bookingId) {

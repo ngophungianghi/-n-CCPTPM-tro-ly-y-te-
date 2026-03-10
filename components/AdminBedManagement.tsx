@@ -28,6 +28,12 @@ export const AdminBedManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   
+  // Manual Entry State
+  const [manualPatientName, setManualPatientName] = useState('');
+  const [manualPatientId, setManualPatientId] = useState('');
+  const [manualPatientPhone, setManualPatientPhone] = useState('');
+  const [isManualMode, setIsManualMode] = useState(false);
+  
   const [diagnosis, setDiagnosis] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -115,31 +121,61 @@ export const AdminBedManagement: React.FC = () => {
   };
 
   const handleAssign = async () => {
-    if (!selectedBed || (!selectedBooking && !selectedUser) || !startTime || !endTime || !diagnosis) return;
+    if (!selectedBed || (!selectedBooking && !selectedUser && !isManualMode) || !startTime || !endTime || !diagnosis) return;
     
-    const patientId = selectedBooking ? selectedBooking.userPhone : selectedUser!.phone;
-    const patientName = selectedBooking ? selectedBooking.userFullName : selectedUser!.fullName;
-    const isEmergency = !!selectedUser;
+    let patientId = '';
+    let patientName = '';
+    let patientPhone = '';
+    let isEmergency = false;
+    let isManualEntry = false;
 
-    await assignBed({
-      bedId: selectedBed.id,
-      patientId,
-      patientName,
-      diagnosis,
-      startTime,
-      expectedEndTime: endTime,
-      status: 'active',
-      isEmergency
-    }, selectedBooking?.id);
-    
-    setShowAssignModal(false);
-    resetForm();
+    if (selectedBooking) {
+      patientId = selectedBooking.userPhone;
+      patientName = selectedBooking.userFullName;
+    } else if (selectedUser) {
+      patientId = selectedUser.phone;
+      patientName = selectedUser.fullName;
+      isEmergency = true;
+    } else if (isManualMode) {
+      if (!manualPatientName || !manualPatientId) {
+        alert("Vui lòng nhập họ tên và mã bệnh nhân.");
+        return;
+      }
+      patientId = manualPatientId;
+      patientName = manualPatientName;
+      patientPhone = manualPatientPhone;
+      isManualEntry = true;
+    }
+
+    try {
+      await assignBed({
+        bedId: selectedBed.id,
+        patientId,
+        patientName,
+        diagnosis,
+        startTime,
+        expectedEndTime: endTime,
+        status: 'active',
+        isEmergency,
+        patientPhone,
+        isManualEntry
+      }, selectedBooking?.id);
+      
+      setShowAssignModal(false);
+      resetForm();
+    } catch (error: any) {
+      alert(error.message || "Có lỗi xảy ra khi xếp giường.");
+    }
   };
 
   const resetForm = () => {
     setSelectedBed(null);
     setSelectedBooking(null);
     setSelectedUser(null);
+    setManualPatientName('');
+    setManualPatientId('');
+    setManualPatientPhone('');
+    setIsManualMode(false);
     setDiagnosis('');
     setStartTime('');
     setEndTime('');
@@ -263,27 +299,39 @@ export const AdminBedManagement: React.FC = () => {
                   </div>
                   <div className="space-y-1 text-xs">
                     <p><span className="opacity-60">Chẩn đoán:</span> {assignment.diagnosis}</p>
-                    <p><span className="opacity-60">Dự kiến xuất viện:</span> {assignment.expectedEndTime.split('T')[0].split('-').reverse().join('/')}</p>
+                    <p className="text-teal-400 font-bold"><span className="opacity-60 text-white">Dự kiến xuất viện:</span> {assignment.expectedEndTime.split('T')[0].split('-').reverse().join('/')}</p>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center gap-2">
+                  <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dischargePatient(assignment.id, bed.id);
+                        }}
+                        className="pointer-events-auto text-[10px] font-bold bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors flex-1"
+                      >
+                        Xuất viện
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistoryBed(bed);
+                          setShowHistoryModal(true);
+                        }}
+                        className="pointer-events-auto text-[10px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                      >
+                        <History size={12} /> Lịch sử
+                      </button>
+                    </div>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        dischargePatient(assignment.id, bed.id);
+                        setSelectedBed(bed);
+                        setShowAssignModal(true);
                       }}
-                      className="pointer-events-auto text-[10px] font-bold bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors flex-1"
+                      className="pointer-events-auto text-[10px] font-bold bg-teal-600 hover:bg-teal-700 px-3 py-1.5 rounded-lg transition-colors w-full"
                     >
-                      Xuất viện
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setHistoryBed(bed);
-                        setShowHistoryModal(true);
-                      }}
-                      className="pointer-events-auto text-[10px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
-                    >
-                      <History size={12} /> Lịch sử
+                      Đặt trước tương lai
                     </button>
                   </div>
                 </div>
@@ -402,13 +450,13 @@ export const AdminBedManagement: React.FC = () => {
 
             <div className="space-y-8">
               {/* Hybrid Input Section */}
-              <div className="grid md:grid-cols-2 gap-8 relative">
+              <div className="grid md:grid-cols-3 gap-6 relative">
                 {/* Option 1: From Appointments */}
-                <div className={`${selectedUser ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
+                <div className={`${(selectedUser || isManualMode) ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
                   <div className="flex justify-between items-center mb-3">
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Lựa chọn 1: Từ chỉ định</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">1: Từ chỉ định</label>
                     {selectedBooking && (
-                      <button onClick={() => setSelectedBooking(null)} className="text-[10px] font-bold text-red-500 hover:underline">Xóa chọn</button>
+                      <button onClick={() => setSelectedBooking(null)} className="text-[10px] font-bold text-red-500 hover:underline">Xóa</button>
                     )}
                   </div>
                   <div className="grid gap-2 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
@@ -419,77 +467,102 @@ export const AdminBedManagement: React.FC = () => {
                           setSelectedBooking(p);
                           setDiagnosis(p.prescription?.note || p.aiSummary || '');
                         }}
-                        className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left
+                        className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all text-left
                           ${selectedBooking?.id === p.id ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-slate-200'}`}
                       >
-                        <div>
-                          <p className="font-bold text-slate-800">{p.userFullName}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{p.aiSummary || 'Khám tổng quát'}</p>
+                        <div className="overflow-hidden">
+                          <p className="font-bold text-slate-800 text-sm truncate">{p.userFullName}</p>
+                          <p className="text-[10px] text-slate-400 mt-1 truncate">{p.aiSummary || 'Khám tổng quát'}</p>
                         </div>
-                        {selectedBooking?.id === p.id && <CheckCircle size={18} className="text-teal-600" />}
+                        {selectedBooking?.id === p.id && <CheckCircle size={16} className="text-teal-600 shrink-0" />}
                       </button>
                     )) : (
-                      <p className="text-sm text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">Không có bệnh nhân chờ nhập viện.</p>
+                      <p className="text-[10px] text-slate-400 italic p-4 text-center bg-slate-50 rounded-2xl">Trống.</p>
                     )}
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-1 z-10">
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">--- HOẶC ---</span>
-                </div>
-                <div className="md:hidden flex justify-center py-2">
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">--- HOẶC ---</span>
-                </div>
-
-                {/* Option 2: Direct Input */}
-                <div className={`${selectedBooking ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
+                {/* Option 2: Direct Search */}
+                <div className={`${(selectedBooking || isManualMode) ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
                   <div className="flex justify-between items-center mb-3">
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Lựa chọn 2: Nhập trực tiếp</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">2: Tìm tài khoản</label>
                     {selectedUser && (
-                      <button onClick={() => { setSelectedUser(null); setUserSearchTerm(''); }} className="text-[10px] font-bold text-red-500 hover:underline">Xóa chọn</button>
+                      <button onClick={() => { setSelectedUser(null); setUserSearchTerm(''); }} className="text-[10px] font-bold text-red-500 hover:underline">Xóa</button>
                     )}
                   </div>
                   <div className="relative mb-3">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input 
                       type="text"
                       value={userSearchTerm}
                       onChange={(e) => setUserSearchTerm(e.target.value)}
-                      placeholder="Tìm tên hoặc SĐT..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 outline-none focus:border-teal-500 text-sm"
+                      placeholder="Tên/SĐT..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 outline-none focus:border-teal-500 text-xs"
                     />
                   </div>
-                  <div className="grid gap-2">
+                  <div className="grid gap-2 max-h-40 overflow-y-auto scrollbar-hide">
                     {userSearchTerm && filteredUsers.map(u => (
                       <button 
                         key={u.phone}
                         onClick={() => setSelectedUser(u)}
-                        className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left
+                        className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all text-left
                           ${selectedUser?.phone === u.phone ? 'border-teal-500 bg-teal-50' : 'border-slate-100 hover:border-slate-200'}`}
                       >
-                        <div>
-                          <p className="font-bold text-slate-800">{u.fullName}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{u.phone}</p>
+                        <div className="overflow-hidden">
+                          <p className="font-bold text-slate-800 text-sm truncate">{u.fullName}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{u.phone}</p>
                         </div>
-                        {selectedUser?.phone === u.phone ? <CheckCircle size={18} className="text-teal-600" /> : <UserPlus size={18} className="text-slate-300" />}
+                        {selectedUser?.phone === u.phone ? <CheckCircle size={16} className="text-teal-600 shrink-0" /> : <UserPlus size={16} className="text-slate-300 shrink-0" />}
                       </button>
                     ))}
                     {!userSearchTerm && !selectedUser && (
-                      <div className="p-8 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
-                        <Search size={24} />
-                        <p className="text-[10px] font-bold mt-2">Nhập để tìm bệnh nhân</p>
+                      <div className="p-4 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
+                        <Search size={20} />
+                        <p className="text-[10px] font-bold mt-1">Tìm bệnh nhân</p>
                       </div>
                     )}
                     {selectedUser && !userSearchTerm && (
-                       <div className="p-4 border-2 border-teal-500 bg-teal-50 rounded-2xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold text-slate-800">{selectedUser.fullName}</p>
-                            <p className="text-[10px] text-slate-400">{selectedUser.phone}</p>
+                       <div className="p-3 border-2 border-teal-500 bg-teal-50 rounded-2xl flex items-center justify-between">
+                          <div className="overflow-hidden">
+                            <p className="font-bold text-slate-800 text-sm truncate">{selectedUser.fullName}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{selectedUser.phone}</p>
                           </div>
-                          <CheckCircle size={18} className="text-teal-600" />
+                          <CheckCircle size={16} className="text-teal-600 shrink-0" />
                        </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Option 3: Manual Entry */}
+                <div className={`${(selectedBooking || selectedUser) ? 'opacity-30 pointer-events-none' : ''} transition-all`}>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">3: Nhập thủ công</label>
+                    {isManualMode && (
+                      <button onClick={() => { setIsManualMode(false); setManualPatientName(''); setManualPatientId(''); setManualPatientPhone(''); }} className="text-[10px] font-bold text-red-500 hover:underline">Xóa</button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <input 
+                      type="text"
+                      value={manualPatientName}
+                      onChange={(e) => { setManualPatientName(e.target.value); setIsManualMode(true); }}
+                      placeholder="Họ và tên *"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-teal-500 text-xs"
+                    />
+                    <input 
+                      type="text"
+                      value={manualPatientId}
+                      onChange={(e) => { setManualPatientId(e.target.value); setIsManualMode(true); }}
+                      placeholder="Mã BN (CMND/CCCD) *"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-teal-500 text-xs"
+                    />
+                    <input 
+                      type="text"
+                      value={manualPatientPhone}
+                      onChange={(e) => { setManualPatientPhone(e.target.value); setIsManualMode(true); }}
+                      placeholder="Số điện thoại"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-teal-500 text-xs"
+                    />
                   </div>
                 </div>
               </div>
@@ -536,7 +609,7 @@ export const AdminBedManagement: React.FC = () => {
               )}
 
               <button 
-                disabled={(!selectedBooking && !selectedUser) || !startTime || !endTime || !diagnosis}
+                disabled={(!selectedBooking && !selectedUser && !isManualMode) || !startTime || !endTime || !diagnosis}
                 onClick={handleAssign}
                 className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-teal-600 transition-all disabled:opacity-30"
               >

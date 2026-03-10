@@ -92,4 +92,6 @@ export interface BedAssignment {
   expectedEndTime: string;
   status: 'active' | 'discharged';
   isEmergency?: boolean;
+  patientPhone?: string;
+  isManualEntry?: boolean;
 }
