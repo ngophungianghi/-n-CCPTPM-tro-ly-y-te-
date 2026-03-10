@@ -102,6 +102,14 @@ export const AdminBedManagement: React.FC = () => {
 
   const handleCreateBed = async () => {
     if (!newBedNumber.trim()) return;
+    
+    // Check for duplicate bed number
+    const isDuplicate = beds.some(b => b.bedNumber.toLowerCase() === newBedNumber.trim().toLowerCase());
+    if (isDuplicate) {
+      alert(`Mã giường "${newBedNumber.trim()}" đã tồn tại. Vui lòng chọn mã khác.`);
+      return;
+    }
+
     await createBed(newBedNumber.trim());
     setNewBedNumber('');
   };
