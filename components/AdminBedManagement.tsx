@@ -74,7 +74,7 @@ export const AdminBedManagement: React.FC = () => {
       const occupiedOnDate = await getOccupancyForDate(statsDate);
       setStats({
         occupied: occupiedOnDate.length,
-        available: beds.length - occupiedOnDate.length
+        available: Math.max(0, beds.length - occupiedOnDate.length)
       });
     };
     calculateStats();
