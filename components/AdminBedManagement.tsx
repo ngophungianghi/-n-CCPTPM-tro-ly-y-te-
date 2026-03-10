@@ -33,6 +33,7 @@ export const AdminBedManagement: React.FC = () => {
   const [endTime, setEndTime] = useState('');
   const [statsDate, setStatsDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState({ occupied: 0, available: 0 });
+  const [assignmentsForDate, setAssignmentsForDate] = useState<BedAssignment[]>([]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -72,6 +73,7 @@ export const AdminBedManagement: React.FC = () => {
   useEffect(() => {
     const calculateStats = async () => {
       const occupiedOnDate = await getOccupancyForDate(statsDate);
+      setAssignmentsForDate(occupiedOnDate);
       setStats({
         occupied: occupiedOnDate.length,
         available: Math.max(0, beds.length - occupiedOnDate.length)
@@ -138,7 +140,7 @@ export const AdminBedManagement: React.FC = () => {
   }, [assignments]);
 
   const getAssignmentForBed = (bedId: string) => {
-    return activeAssignments.find(a => a.bedId === bedId);
+    return assignmentsForDate.find(a => a.bedId === bedId);
   };
 
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-teal-600" /></div>;
@@ -155,11 +157,11 @@ export const AdminBedManagement: React.FC = () => {
         <div className="flex flex-wrap gap-4">
           <div className="bg-teal-50 px-6 py-3 rounded-2xl border border-teal-100">
             <p className="text-xs font-bold text-teal-600 uppercase tracking-wider">Trống</p>
-            <p className="text-2xl font-black text-teal-700">{beds.filter(b => b.status === 'available').length}</p>
+            <p className="text-2xl font-black text-teal-700">{stats.available}</p>
           </div>
           <div className="bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Đang sử dụng</p>
-            <p className="text-2xl font-black text-slate-700">{beds.filter(b => b.status === 'occupied').length}</p>
+            <p className="text-2xl font-black text-slate-700">{stats.occupied}</p>
           </div>
         </div>
       </div>
@@ -215,27 +217,29 @@ export const AdminBedManagement: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {beds.sort((a, b) => a.bedNumber.localeCompare(b.bedNumber)).map(bed => {
           const assignment = getAssignmentForBed(bed.id);
+          const isOccupied = !!assignment;
+          
           return (
             <div 
               key={bed.id}
               className={`relative group p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 h-32
-                ${bed.status === 'available' 
+                ${!isOccupied 
                   ? 'bg-teal-50 border-teal-100 hover:border-teal-300' 
                   : 'bg-slate-100 border-slate-200 hover:border-slate-300'}`}
               onClick={() => {
-                if (bed.status === 'available') {
+                if (!isOccupied) {
                   setSelectedBed(bed);
                   setShowAssignModal(true);
                 }
               }}
             >
-              <BedIcon size={32} className={bed.status === 'available' ? 'text-teal-600' : 'text-slate-400'} />
-              <span className={`font-black ${bed.status === 'available' ? 'text-teal-700' : 'text-slate-600'}`}>
+              <BedIcon size={32} className={!isOccupied ? 'text-teal-600' : 'text-slate-400'} />
+              <span className={`font-black ${!isOccupied ? 'text-teal-700' : 'text-slate-600'}`}>
                 {bed.bedNumber}
               </span>
               
               {/* Tooltip on Hover */}
-              {bed.status === 'occupied' && assignment && (
+              {isOccupied && assignment && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-20">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-xs">
@@ -275,7 +279,7 @@ export const AdminBedManagement: React.FC = () => {
               )}
 
               {/* History Icon for available beds */}
-              {bed.status === 'available' && (
+              {!isOccupied && (
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
