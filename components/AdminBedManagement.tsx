@@ -7,7 +7,8 @@ import {
 import { Bed, BedAssignment, Booking, User } from '../types';
 import { 
   subscribeToBeds, subscribeToAssignments, createBed, 
-  deleteBed, assignBed, dischargePatient, getOccupancyForDate 
+  deleteBed, assignBed, dischargePatient, getOccupancyForDate,
+  updateBed
 } from '../services/bedService';
 import { subscribeToBookings, fetchAllUsers } from '../services/databaseService';
 
@@ -57,6 +58,38 @@ export const AdminBedManagement: React.FC = () => {
       unsubBookings();
     };
   }, []);
+
+  useEffect(() => {
+    // Check for beds that should be occupied now
+    const checkInitialOccupancy = async () => {
+      const now = new Date().getTime();
+      const currentAssignments = assignments.filter(a => a.status === 'active');
+      const bedsToUpdate: {id: string, shouldBeOccupied: boolean}[] = [];
+
+      beds.forEach(bed => {
+        const hasCurrent = currentAssignments.some(a => {
+          if (a.bedId !== bed.id) return false;
+          const start = new Date(a.startTime).getTime();
+          const end = new Date(a.expectedEndTime).getTime();
+          return now >= start && now <= end;
+        });
+
+        if (hasCurrent && bed.status === 'available') {
+          bedsToUpdate.push({id: bed.id, shouldBeOccupied: true});
+        } else if (!hasCurrent && bed.status === 'occupied') {
+          bedsToUpdate.push({id: bed.id, shouldBeOccupied: false});
+        }
+      });
+
+      for (const b of bedsToUpdate) {
+        await updateBed(b.id, { status: b.shouldBeOccupied ? 'occupied' : 'available' });
+      }
+    };
+
+    if (beds.length > 0 && assignments.length > 0) {
+      checkInitialOccupancy();
+    }
+  }, [beds, assignments]);
 
   useEffect(() => {
     const checkAutoDischarge = async () => {
@@ -404,8 +437,14 @@ export const AdminBedManagement: React.FC = () => {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SĐT: {a.patientId}</p>
                           </div>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${a.status === 'active' ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}`}>
-                          {a.status === 'active' ? 'Đang nằm' : 'Đã xuất viện'}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                          a.status === 'active' 
+                            ? (new Date(a.startTime).getTime() > new Date().getTime() ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700') 
+                            : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {a.status === 'active' 
+                            ? (new Date(a.startTime).getTime() > new Date().getTime() ? 'Sắp tới' : 'Đang nằm') 
+                            : 'Đã xuất viện'}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-xs">

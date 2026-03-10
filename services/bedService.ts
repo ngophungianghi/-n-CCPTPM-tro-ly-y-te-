@@ -134,9 +134,26 @@ export const dischargePatient = async (assignmentId: string, bedId: string) => {
   const assignmentRef = doc(db, ASSIGNMENTS_COLLECTION, assignmentId);
   await updateDoc(assignmentRef, { status: 'discharged' });
 
-  // 2. Update bed status
+  // 2. Check if there's another active assignment for this bed right now
+  const now = new Date().getTime();
+  const q = query(
+    collection(db, ASSIGNMENTS_COLLECTION),
+    where("bedId", "==", bedId),
+    where("status", "==", "active")
+  );
+  
+  const snapshot = await getDocs(q);
+  const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BedAssignment));
+  
+  const hasCurrentOccupant = assignments.some(a => {
+    const start = new Date(a.startTime).getTime();
+    const end = new Date(a.expectedEndTime).getTime();
+    return now >= start && now <= end;
+  });
+
+  // 3. Update bed status accordingly
   const bedRef = doc(db, BEDS_COLLECTION, bedId);
-  await updateDoc(bedRef, { status: 'available' });
+  await updateDoc(bedRef, { status: hasCurrentOccupant ? 'occupied' : 'available' });
 };
 
 export const getOccupancyForDate = async (date: string) => {
