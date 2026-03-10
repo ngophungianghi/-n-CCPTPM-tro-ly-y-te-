@@ -73,10 +73,13 @@ export const AdminBedManagement: React.FC = () => {
   useEffect(() => {
     const calculateStats = async () => {
       const occupiedOnDate = await getOccupancyForDate(statsDate);
-      setAssignmentsForDate(occupiedOnDate);
+      // Only count assignments for beds that still exist
+      const validOccupied = occupiedOnDate.filter(a => beds.some(b => b.id === a.bedId));
+      
+      setAssignmentsForDate(validOccupied);
       setStats({
-        occupied: occupiedOnDate.length,
-        available: Math.max(0, beds.length - occupiedOnDate.length)
+        occupied: validOccupied.length,
+        available: Math.max(0, beds.length - validOccupied.length)
       });
     };
     calculateStats();
