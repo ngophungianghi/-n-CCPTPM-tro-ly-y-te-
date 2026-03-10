@@ -30,6 +30,15 @@ export const subscribeToAssignments = (callback: (assignments: BedAssignment[]) 
   });
 };
 
+export const createBed = async (bedNumber: string) => {
+  if (!db) return;
+  const bedRef = doc(collection(db, BEDS_COLLECTION));
+  await setDoc(bedRef, {
+    bedNumber,
+    status: 'available'
+  });
+};
+
 export const bulkCreateBeds = async (count: number) => {
   if (!db) return;
   const batch = writeBatch(db);

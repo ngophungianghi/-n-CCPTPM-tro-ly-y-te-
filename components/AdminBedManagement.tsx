@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Trash2, CheckCircle, X, Loader2, 
   Bed as BedIcon, Calendar, Info,
-  Clock, Search, UserPlus, AlertCircle
+  Clock, Search, UserPlus, AlertCircle, History
 } from 'lucide-react';
 import { Bed, BedAssignment, Booking, User } from '../types';
 import { 
-  subscribeToBeds, subscribeToAssignments, bulkCreateBeds, 
+  subscribeToBeds, subscribeToAssignments, createBed, 
   deleteBed, assignBed, dischargePatient, getOccupancyForDate 
 } from '../services/bedService';
 import { subscribeToBookings, fetchAllUsers } from '../services/databaseService';
@@ -17,9 +17,11 @@ export const AdminBedManagement: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bulkCount, setBulkCount] = useState(10);
+  const [newBedNumber, setNewBedNumber] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
+  const [historyBed, setHistoryBed] = useState<Bed | null>(null);
   
   // Hybrid Input State
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -93,9 +95,10 @@ export const AdminBedManagement: React.FC = () => {
     ).slice(0, 5);
   }, [users, userSearchTerm]);
 
-  const handleBulkCreate = async () => {
-    if (bulkCount <= 0) return;
-    await bulkCreateBeds(bulkCount);
+  const handleCreateBed = async () => {
+    if (!newBedNumber.trim()) return;
+    await createBed(newBedNumber.trim());
+    setNewBedNumber('');
   };
 
   const handleAssign = async () => {
@@ -161,24 +164,24 @@ export const AdminBedManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Bulk Create & Date Filter */}
+      {/* Manual Create & Date Filter */}
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-4">
           <div className="flex-1 w-full">
-            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Tạo giường hàng loạt</label>
+            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Thêm giường bệnh mới</label>
             <div className="flex gap-2 mt-1">
               <input 
-                type="number" 
-                value={bulkCount} 
-                onChange={(e) => setBulkCount(parseInt(e.target.value))}
+                type="text" 
+                value={newBedNumber} 
+                onChange={(e) => setNewBedNumber(e.target.value)}
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-teal-500"
-                placeholder="Số lượng giường..."
+                placeholder="Ví dụ: DB_1, 180_1..."
               />
               <button 
-                onClick={handleBulkCreate}
+                onClick={handleCreateBed}
                 className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-teal-600 transition-all"
               >
-                <Plus size={18} /> Tạo
+                <Plus size={18} /> Thêm
               </button>
             </div>
           </div>
@@ -247,18 +250,43 @@ export const AdminBedManagement: React.FC = () => {
                     <p><span className="opacity-60">Chẩn đoán:</span> {assignment.diagnosis}</p>
                     <p><span className="opacity-60">Dự kiến xuất viện:</span> {assignment.expectedEndTime.split('T')[0].split('-').reverse().join('/')}</p>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center">
+                  <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center gap-2">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         dischargePatient(assignment.id, bed.id);
                       }}
-                      className="pointer-events-auto text-[10px] font-bold bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg transition-colors"
+                      className="pointer-events-auto text-[10px] font-bold bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors flex-1"
                     >
                       Xuất viện
                     </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHistoryBed(bed);
+                        setShowHistoryModal(true);
+                      }}
+                      className="pointer-events-auto text-[10px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                    >
+                      <History size={12} /> Lịch sử
+                    </button>
                   </div>
                 </div>
+              )}
+
+              {/* History Icon for available beds */}
+              {bed.status === 'available' && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHistoryBed(bed);
+                    setShowHistoryModal(true);
+                  }}
+                  className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-teal-600 transition-all"
+                  title="Xem lịch sử"
+                >
+                  <History size={14} />
+                </button>
               )}
 
               {/* Delete Bed Icon */}
@@ -275,6 +303,76 @@ export const AdminBedManagement: React.FC = () => {
           );
         })}
       </div>
+
+      {/* History Modal */}
+      {showHistoryModal && historyBed && (
+        <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl p-8 animate-slide-up shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-hide">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl">
+                  <History size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">Lịch sử giường {historyBed.bedNumber}</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Danh sách bệnh nhân đã sử dụng</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowHistoryModal(false); setHistoryBed(null); }} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {assignments.filter(a => a.bedId === historyBed.id).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).length > 0 ? (
+                assignments
+                  .filter(a => a.bedId === historyBed.id)
+                  .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+                  .map((a, idx) => (
+                    <div key={a.id} className="bg-slate-50 p-5 rounded-3xl border border-slate-100 relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-teal-500 opacity-20 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-teal-600 border border-slate-100 shadow-sm">
+                            {a.patientName[0]}
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-900">{a.patientName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SĐT: {a.patientId}</p>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${a.status === 'active' ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}`}>
+                          {a.status === 'active' ? 'Đang nằm' : 'Đã xuất viện'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="bg-white p-3 rounded-2xl border border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Thời gian vào</p>
+                          <p className="font-bold text-slate-700">{new Date(a.startTime).toLocaleString('vi-VN')}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl border border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Thời gian ra {a.status === 'active' ? '(Dự kiến)' : ''}</p>
+                          <p className="font-bold text-slate-700">{new Date(a.expectedEndTime).toLocaleString('vi-VN')}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 p-3 bg-white rounded-2xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Chẩn đoán</p>
+                        <p className="text-sm text-slate-600 italic">"{a.diagnosis}"</p>
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                <div className="py-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 shadow-sm">
+                    <History size={32} />
+                  </div>
+                  <p className="text-slate-400 font-bold">Chưa có lịch sử sử dụng cho giường này.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assign Modal */}
       {showAssignModal && selectedBed && (
